@@ -3,13 +3,12 @@ import urllib.parse
 from dotenv import load_dotenv
 from typing import List, Dict
 
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_core.documents import Document
@@ -25,7 +24,14 @@ class ChatService():
 
     def __init__(self, lang=Language.ENGLISH, location="Garching, Munich"):
         self.chat_history_store = [] # TODO: Temporary storage for chat history (should be replaced by a database in production)
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        self.llm = AzureChatOpenAI(
+            azure_deployment="gpt-4o-mini", 
+            api_version="2024-08-01-preview",
+            temperature=0,
+            max_tokens=None,
+            timeout=None,
+            max_retries=2
+            )
         self.lang = lang
         self.location = location
         self.video_store = []
@@ -218,7 +224,7 @@ class ChatService():
             f"{response['answer']}"
         )
 
-        final_response = self.llm(final_prompt)
+        final_response = self.llm.invoke(final_prompt)
 
         # Update chat history
         self.chat_history_store.append({"role": "assistant", "content": final_response.content})
