@@ -1,9 +1,8 @@
 import json
 import urllib.parse
-from dotenv import load_dotenv
 from typing import List, Dict
 
-from langchain_openai import ChatOpenAI, AzureChatOpenAI, OpenAIEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -16,22 +15,13 @@ from langchain_core.documents import Document
 from schemas.chat_schema import ChatResponse, Language
 from schemas.location_schema import LocationQuery
 from services.location_service import LocationService
-
-load_dotenv()
+from services import llm
 
 
 class ChatService():
 
     def __init__(self, lang=Language.ENGLISH, location="Garching, Munich"):
         self.chat_history_store = [] # TODO: Temporary storage for chat history (should be replaced by a database in production)
-        self.llm = AzureChatOpenAI(
-            azure_deployment="gpt-4o-mini", 
-            api_version="2024-08-01-preview",
-            temperature=0,
-            max_tokens=None,
-            timeout=None,
-            max_retries=2
-            )
         self.lang = lang
         self.location = location
         self.video_store = []
@@ -76,7 +66,12 @@ class ChatService():
 
         all_documents = splits + video_documents
 
-        vectorstore = InMemoryVectorStore.from_documents(documents=all_documents, embedding=OpenAIEmbeddings(model="text-embedding-ada-002"))
+        vectorstore = InMemoryVectorStore.from_documents(
+            documents=all_documents, 
+            embedding=AzureOpenAIEmbeddings(
+                model="text-embedding-ada-002",
+                api_version="2023-05-15")
+            )
         retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={'k': 5, 'fetch_k': 100, "score_threshold": 0.75})
 
         # Contextualize question 
@@ -94,7 +89,7 @@ class ChatService():
             ]
         )
         self.history_aware_retriever = create_history_aware_retriever(
-            self.llm, retriever, contextualize_q_prompt
+            llm, retriever, contextualize_q_prompt
             )
         
     def _setup_rag_chain(self, lang):
@@ -110,7 +105,7 @@ class ChatService():
                 ("human", "{input}"),
             ]
         )
-        question_answer_chain = create_stuff_documents_chain(self.llm, qa_prompt)
+        question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
         self.rag_chain = create_retrieval_chain(self.history_aware_retriever, question_answer_chain)
     
     def _extract_cleaned_sources(self, context) -> List[str]:
@@ -147,7 +142,7 @@ class ChatService():
             location_prompt = file.read()
         
         prompt = ChatPromptTemplate.from_messages([("system", location_prompt), ("human", "{input}")])
-        location_extractor = self.llm.with_structured_output(LocationQuery)
+        location_extractor = llm.with_structured_output(LocationQuery)
         self.location_extractor_llm = prompt | location_extractor
 
 
@@ -224,7 +219,7 @@ class ChatService():
             f"{response['answer']}"
         )
 
-        final_response = self.llm.invoke(final_prompt)
+        final_response = llm.invoke(final_prompt)
 
         # Update chat history
         self.chat_history_store.append({"role": "assistant", "content": final_response.content})
