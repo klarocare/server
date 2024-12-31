@@ -2,7 +2,7 @@ import json
 import urllib.parse
 from typing import List, Dict
 
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -66,7 +66,12 @@ class ChatService():
 
         all_documents = splits + video_documents
 
-        vectorstore = InMemoryVectorStore.from_documents(documents=all_documents, embedding=OpenAIEmbeddings(model="text-embedding-ada-002"))
+        vectorstore = InMemoryVectorStore.from_documents(
+            documents=all_documents, 
+            embedding=AzureOpenAIEmbeddings(
+                model="text-embedding-ada-002",
+                api_version="2023-05-15")
+            )
         retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={'k': 5, 'fetch_k': 100, "score_threshold": 0.75})
 
         # Contextualize question 
