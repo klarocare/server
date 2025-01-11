@@ -1,11 +1,12 @@
 from fastapi import FastAPI
-from routes import chat_api, care_task_api
+from routes import chat_api, care_task_api, whatsapp_api
 
 
 app = FastAPI(root_path="/api")
 
 app.include_router(chat_api.router)
 app.include_router(care_task_api.router)
+app.include_router(whatsapp_api.router)
 
 
 @app.get("/health-check")
