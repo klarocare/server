@@ -4,10 +4,16 @@ import requests
 import re
 import os
 
+from schemas.chat_schema import ChatMessage
+from services.rag_service import RAGService
+from schemas.database.chat_database import ChatDatabase
+from utils.constants import CHAT_HISTORY_LIMIT
+
 class WhatsappService():
 
-    def __init__(self):
-        pass
+    def __init__(self, rag_service: RAGService, chat_database: ChatDatabase):
+        self.rag_service = rag_service
+        self.chat_db = chat_database
 
     def handle_message(self, body):
         """
@@ -61,6 +67,8 @@ class WhatsappService():
 
 
     def _get_text_message_input(self, recipient, text):
+        # TODO: Type of the message can be different - we should integrate other types as well
+        # https://developers.facebook.com/docs/whatsapp/cloud-api/messages/video-messages
         return json.dumps(
             {
                 "messaging_product": "whatsapp",
@@ -71,11 +79,9 @@ class WhatsappService():
             }
         )
 
-
     def _generate_response(self, response):
         # Return text in uppercase
         return response.upper()
-
 
     def _send_message(self, data):
         headers = {
@@ -121,23 +127,47 @@ class WhatsappService():
 
         return whatsapp_style_text
 
-
-    def _process_whatsapp_message(self, body):
+    async def _process_whatsapp_message(self, body):
+        # Extract WhatsApp message details
         wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
-        # TODO: We could also use the name here
         name = body["entry"][0]["changes"][0]["value"]["contacts"][0]["profile"]["name"]
-
+        
         message = body["entry"][0]["changes"][0]["value"]["messages"][0]
         message_body = message["text"]["body"]
 
-        # TODO: implement custom function here
-        response = self._generate_response(message_body)
+        session = await self.chat_db.get_or_create_session(wa_id)
 
-        # OpenAI Integration
-        # response = generate_response(message_body, wa_id, name)
-        # response = process_text_for_whatsapp(response)
+        # Save user message
+        await self.chat_db.save_message(ChatMessage(
+            session_id=session.id,
+            whatsapp_id=wa_id,
+            role="user",
+            content=message_body
+        ))
 
-        data = self._get_text_message_input(wa_id, response)
+        # Get recent chat history
+        recent_messages = await self.chat_db.get_recent_messages(wa_id, limit=CHAT_HISTORY_LIMIT)
+        chat_history = [
+            {"role": msg.role, "content": msg.content}
+            for msg in reversed(recent_messages)
+        ]
+
+        # Generate response using RAG service
+        response = await self.rag_service.query(
+            message=message_body,
+            chat_history=chat_history,
+        )
+
+        # Save assistant message
+        await self.chat_db.save_message(ChatMessage(
+            session_id=session.id,
+            whatsapp_id=wa_id,
+            role="assistant",
+            content=response.answer
+        ))
+
+        # Format and send WhatsApp message
+        data = self._get_text_message_input(wa_id, response.answer)
         self._send_message(data)
 
 

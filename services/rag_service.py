@@ -1,6 +1,6 @@
 import json
 import urllib.parse
-from typing import List, Dict
+from typing import List
 
 from langchain_openai import AzureOpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
@@ -13,23 +13,17 @@ from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_core.documents import Document
 
 from schemas.chat_schema import ChatResponse, Language
-from schemas.location_schema import LocationQuery
-from services.location_service import LocationService
 from services import llm
 
 
-class ChatService():
+class RAGService():
 
-    def __init__(self, lang=Language.ENGLISH, location="Garching, Munich"):
-        self.chat_history_store = [] # TODO: Temporary storage for chat history (should be replaced by a database in production)
-        self.lang = lang
-        self.location = location
+    def __init__(self):
         self.video_store = []
-        self.location_service = LocationService()
-        self._setup_location_extractor()
+        self.lang = Language.ENGLISH
         self._setup_video_store()
         self._setup_retriever()
-        self._setup_rag_chain(lang)
+        self._setup_rag_chain(self.lang)
     
     def setup(self, request):
         self.__init__(lang=request.language)
@@ -69,7 +63,7 @@ class ChatService():
         vectorstore = InMemoryVectorStore.from_documents(
             documents=all_documents, 
             embedding=AzureOpenAIEmbeddings(
-                model="text-embedding-ada-002",
+                model="text-embedding-ada-002", # TODO: Config file to define these
                 api_version="2023-05-15")
             )
         retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={'k': 5, 'fetch_k': 100, "score_threshold": 0.75})
@@ -132,41 +126,12 @@ class ChatService():
                 thumbnails.append(thumbnail_url)
         
         return thumbnails
-    
-    def _setup_location_extractor(self):
-        """
-        Creates a chain that expects AI generated message as input, and returns a list of a predifined location types.
-        The chain tries to infer if a location type is mentioned in the AI generated message.
-        """
-        with open(f'utils/prompts/prompt_location_extractor.txt', 'r') as file:
-            location_prompt = file.read()
-        
-        prompt = ChatPromptTemplate.from_messages([("system", location_prompt), ("human", "{input}")])
-        location_extractor = llm.with_structured_output(LocationQuery)
-        self.location_extractor_llm = prompt | location_extractor
-
-
-    async def _check_locations(self, answer) -> Dict:
-        """
-        Asks location extractor chain with AI generated message if a location type is mentioned in the message.
-        If it is, then it adds the user's location, and sends a query to Google Maps API, to extract the places
-        that match the location types and the location.
-        """
-        search_text: LocationQuery = self.location_extractor_llm.invoke(answer)
-
-        if search_text.query:
-            print(search_text.concat() + f" near {self.location}")
-            return await self.location_service.get_places(search_text.concat() + f" near {self.location}")
-        else:
-            return {}
         
     async def _extract_context(self, response):
         """
         Extract video and location data from the RAG chain response.
         Combine this data into a unified context for generating better responses.
         """
-        # Extract locations
-        locations = await self._check_locations(response["answer"])
 
         # Extract video metadata
         video_sources = [
@@ -181,7 +146,6 @@ class ChatService():
 
         # Combine extracted context
         unified_context = {
-            "locations": locations,
             "videos": video_sources,
             "original_context": response["context"],
         }
@@ -189,19 +153,18 @@ class ChatService():
         return unified_context
 
 
-    async def query(self, request) -> ChatResponse:
+    async def query(self, message, chat_history) -> ChatResponse:
         """
         The flow of this method:
         1 - Generate an answer for the user's question using the RAG chain.
         2 - Extract locations and videos.
         3 - Use unified context for final output generation.
         """
-        self.chat_history_store.append({"role": "user", "content": request.input})
-
+        
         # Step 1: Generate initial answer with RAG chain
         state = {
-            "input": request.input,
-            "chat_history": self.chat_history_store,
+            "input": message,
+            "chat_history": chat_history,
             "context": "",
         }
         response = self.rag_chain.invoke(state)
@@ -212,7 +175,6 @@ class ChatService():
         # Step 3: Pass unified context into a secondary prompt for final refinement
         final_prompt = (
             "Here is the retrieved context:\n"
-            f"Locations: {unified_context['locations']}\n"
             f"Videos: {unified_context['videos']}\n\n"
             "Based on this context, generate an accurate, brief (must fit a mobile screen chat format) and user-friendly response\n"
             "Keep the original language and the tone of voice:\n"
@@ -221,17 +183,11 @@ class ChatService():
 
         final_response = llm.invoke(final_prompt)
 
-        # Update chat history
-        self.chat_history_store.append({"role": "assistant", "content": final_response.content})
-
         return ChatResponse(
-            chat_history=self.chat_history_store,
             sources=self._extract_cleaned_sources(unified_context["original_context"]),
             thumbnails=self._fill_thumbnails(unified_context["videos"]),
             video_URLs=[video["url"] for video in unified_context["videos"]],
-            locations=unified_context["locations"],
             answer=final_response.content,
         )
-
 
             

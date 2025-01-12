@@ -1,9 +1,9 @@
 from fastapi import APIRouter
 
 from schemas.chat_schema import ChatRequest, ChatResponse, SetupRequest
-from services.chat_service import ChatService
+from services.rag_service import RAGService
 
-service = ChatService()
+service = RAGService()
 
 router = APIRouter(
     prefix="/chat",
