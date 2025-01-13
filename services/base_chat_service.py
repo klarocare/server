@@ -5,10 +5,10 @@ from services.rag_service import RAGService
 
 
 class BaseChatService:
-    def __init__(self, rag_service: RAGService):
+    def __init__(self):
         self.session_repo = SessionRepository()
         self.message_repo = MessageRepository()
-        self.rag_service = rag_service
+        self.rag_service = RAGService.get_instance()
 
     async def process_chat_message(self, user_id: str, message_body: str) -> str:
         """

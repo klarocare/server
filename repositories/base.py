@@ -1,6 +1,6 @@
 from typing import TypeVar, Generic, Type, Optional, List, Any, Dict
 from bson import ObjectId
-import datetime
+from datetime import datetime
 
 from motor.motor_asyncio import AsyncIOMotorDatabase, AsyncIOMotorCollection
 
@@ -36,8 +36,8 @@ class MongoRepository(Generic[T]):
         """Create a new document"""
         model_dict = model_in.model_dump(by_alias=True)
         if "created_at" not in model_dict:
-            model_dict["created_at"] = datetime.utcnow()
-        model_dict["updated_at"] = datetime.utcnow()
+            model_dict["created_at"] = datetime.now()
+        model_dict["updated_at"] = datetime.now()
         
         result = await self.collection.insert_one(model_dict)
         return await self.get_by_id(str(result.inserted_id))
@@ -59,7 +59,7 @@ class MongoRepository(Generic[T]):
         if not ObjectId.is_valid(id):
             return None
         
-        update_data["updated_at"] = datetime.utcnow()
+        update_data["updated_at"] = datetime.now()
         result = await self.collection.update_one(
             {"_id": ObjectId(id)},
             {"$set": update_data}

@@ -10,8 +10,8 @@ from services.rag_service import RAGService
 from services.base_chat_service import BaseChatService
 
 class WhatsappService(BaseChatService):
-    def __init__(self, rag_service: RAGService):
-        super().__init__(rag_service)
+    def __init__(self):
+        super().__init__()
 
     def verify(self, mode: str, token: str, challenge: str) -> str:
         """
@@ -97,7 +97,7 @@ class WhatsappService(BaseChatService):
         # Format response for WhatsApp
         formatted_response = self._process_text_for_whatsapp(response_answer)
         data = self._get_text_message_input(wa_id, formatted_response)
-        self._send_message(data)
+        # self._send_message(data)
         return data
 
     def _get_text_message_input(self, recipient, text):

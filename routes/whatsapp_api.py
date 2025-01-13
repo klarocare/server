@@ -6,7 +6,6 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from services.whatsapp_service import WhatsappService
 from utils.security import verify_signature
-from routes.rag_api import service
 
 router = APIRouter(
     prefix="/webhook",
@@ -14,7 +13,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-service = WhatsappService(service) # TODO NOT A GOOD WAY OF ACCESSING RAG SERVICE
+service = WhatsappService()
 
 @router.get("", response_class=PlainTextResponse)
 async def verify_webhook(

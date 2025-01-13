@@ -2,7 +2,7 @@ import json
 import urllib.parse
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
+import threading
 
 from langchain_openai import AzureOpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
@@ -19,14 +19,35 @@ from services import llm
 from utils.constants import RAG_CONFIG
 
 
+
 class RAGService:
+    _instance = None
+    _lock = threading.Lock()  # To ensure thread safety
+
+    def __new__(cls, *args, **kwargs):
+        """Control the instantiation process."""
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
-        self.video_store = []
-        self.lang = Language.ENGLISH
-        self.config = RAG_CONFIG
-        self._setup_video_store()
-        self._setup_retriever()
-        self._setup_rag_chain(self.lang)
+        if not hasattr(self, "initialized"):  # Avoid reinitialization
+            self.initialized = True
+            self.video_store = []
+            self.lang = Language.ENGLISH
+            self.config = RAG_CONFIG
+            self._setup_video_store()
+            self._setup_retriever()
+            self._setup_rag_chain(self.lang)
+
+    @classmethod
+    def get_instance(cls):
+        """Return the singleton instance of RAGService."""
+        if not cls._instance:
+            cls._instance = cls()
+        return cls._instance
     
     def _setup_video_store(self):
         with open(os.path.join(self.config['db_path'], 'videos.json')) as file:

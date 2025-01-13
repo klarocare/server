@@ -33,6 +33,6 @@ class Database:
     
     @classmethod
     def get_db(cls) -> AsyncIOMotorDatabase:
-        if cls._instance is not None:
+        if cls._instance is None:
             raise RuntimeError("Database not initialized")
         return cls._instance.chat_db

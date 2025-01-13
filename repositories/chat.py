@@ -1,5 +1,5 @@
 from typing import List
-import datetime
+from datetime import datetime
 
 from repositories.base import MongoRepository
 from schemas.chat_schema import ChatMessage, UserSession
@@ -14,7 +14,7 @@ class SessionRepository(MongoRepository[UserSession]):
         if not session:
             session = await self.create(UserSession(whatsapp_id=whatsapp_id))
         else:
-            await self.update(str(session.id), {"last_active": datetime.utcnow()})
+            await self.update(str(session.id), {"last_active": datetime.now()})
         return session
 
 class MessageRepository(MongoRepository[ChatMessage]):
