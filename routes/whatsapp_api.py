@@ -1,18 +1,20 @@
 import json
+from typing import Dict
 
 from fastapi import Query, APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from services.whatsapp_service import WhatsappService
 from utils.security import verify_signature
-
-service = WhatsappService()
+from routes.rag_api import service
 
 router = APIRouter(
     prefix="/webhook",
     tags=["webhook"],
     responses={404: {"description": "Not found"}},
 )
+
+service = WhatsappService(service) # TODO NOT A GOOD WAY OF ACCESSING RAG SERVICE
 
 @router.get("", response_class=PlainTextResponse)
 async def verify_webhook(
@@ -39,7 +41,20 @@ async def handle_webhook(body_str: str = Depends(verify_signature)):
     """
     try:
         body = json.loads(body_str)
-        response_body, status_code = service.handle_message(body)
+        response_body, status_code = await service.handle_message(body)
+        return JSONResponse(content=json.loads(response_body), status_code=status_code)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON provided")
+    
+## Test endpoint
+
+@router.post("/test")
+async def test_webhook(body_str: Dict):
+    """
+    Handle incoming webhook events from WhatsApp.
+    """
+    try:
+        response_body, status_code = await service.handle_message(body_str)
         return JSONResponse(content=json.loads(response_body), status_code=status_code)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON provided")

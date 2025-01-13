@@ -4,54 +4,18 @@ import requests
 import re
 import os
 
-from schemas.chat_schema import ChatMessage
+from tenacity import retry, stop_after_attempt, wait_fixed
+
 from services.rag_service import RAGService
-from schemas.database.chat_database import ChatDatabase
-from utils.constants import CHAT_HISTORY_LIMIT
+from services.base_chat_service import BaseChatService
 
-class WhatsappService():
-
-    def __init__(self, rag_service: RAGService, chat_database: ChatDatabase):
-        self.rag_service = rag_service
-        self.chat_db = chat_database
-
-    def handle_message(self, body):
-        """
-        Handle incoming webhook events from the WhatsApp API.
-
-        This function processes incoming WhatsApp messages and other events,
-        such as delivery statuses. If the event is a valid message, it gets
-        processed. If the incoming payload is not a recognized WhatsApp event,
-        an error is returned.
-
-        Every message send will trigger 4 HTTP requests to your webhook: message, sent, delivered, read.
-
-        Returns:
-            response: A tuple containing a JSON response and an HTTP status code.
-        """
-        logging.info(f"request body: {body}")
-
-        # Check if it's a WhatsApp status update
-        if (
-            body.get("entry", [{}])[0]
-            .get("changes", [{}])[0]
-            .get("value", {})
-            .get("statuses")
-        ):
-            logging.info("Received a WhatsApp status update.")
-            return json.dumps({"status": "ok"}), 200
-
-        print(body)
-        # Process valid WhatsApp messages
-        if self._is_valid_whatsapp_message(body):
-            self._process_whatsapp_message(body)
-            return json.dumps({"status": "ok"}), 200
-        else:
-            return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
+class WhatsappService(BaseChatService):
+    def __init__(self, rag_service: RAGService):
+        super().__init__(rag_service)
 
     def verify(self, mode: str, token: str, challenge: str) -> str:
         """
-        Verify the webhook token and return the challenge string
+        Verify the webhook token and return the challenge string.
         """
         if mode == "subscribe" and token == os.environ.get("VERIFY_TOKEN"):
             logging.info("WEBHOOK_VERIFIED")
@@ -59,117 +23,31 @@ class WhatsappService():
         logging.info("VERIFICATION_FAILED")
         raise ValueError("Verification failed")
 
+    async def handle_message(self, body):
+        """
+        Handle incoming webhook events from the WhatsApp API.
+        """
+        logging.info(f"Received webhook payload: {body}")
 
-    def _log_http_response(self, response):
-        logging.info(f"Status: {response.status_code}")
-        logging.info(f"Content-type: {response.headers.get('content-type')}")
-        logging.info(f"Body: {response.text}")
+        if self._is_status_update(body):
+            logging.info("Received a WhatsApp status update.")
+            return json.dumps({"status": "ok"}), 200
 
-
-    def _get_text_message_input(self, recipient, text):
-        # TODO: Type of the message can be different - we should integrate other types as well
-        # https://developers.facebook.com/docs/whatsapp/cloud-api/messages/video-messages
-        return json.dumps(
-            {
-                "messaging_product": "whatsapp",
-                "recipient_type": "individual",
-                "to": recipient,
-                "type": "text",
-                "text": {"preview_url": False, "body": text},
-            }
-        )
-
-    def _generate_response(self, response):
-        # Return text in uppercase
-        return response.upper()
-
-    def _send_message(self, data):
-        headers = {
-            "Content-type": "application/json",
-            "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
-        }
-
-        url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
-
-        try:
-            response = requests.post(
-                url, data=data, headers=headers, timeout=10
-            )  # 10 seconds timeout as an example
-            response.raise_for_status()  # Raises an HTTPError if the HTTP request returned an unsuccessful status code
-        except requests.Timeout:
-            logging.error("Timeout occurred while sending message")
-            return json.dumps({"status": "error", "message": "Request timed out"}), 408
-        except (
-            requests.RequestException
-        ) as e:  # This will catch any general request exception
-            logging.error(f"Request failed due to: {e}")
-            return json.dumps({"status": "error", "message": "Failed to send message"}), 500
+        if self._is_valid_whatsapp_message(body):
+            return await self._process_whatsapp_message(body)
         else:
-            # Process the response as normal
-            self._log_http_response(response)
-            return response
+            return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
 
-
-    def _process_text_for_whatsapp(self, text):
-        # Remove brackets
-        pattern = r"\【.*?\】"
-        # Substitute the pattern with an empty string
-        text = re.sub(pattern, "", text).strip()
-
-        # Pattern to find double asterisks including the word(s) in between
-        pattern = r"\*\*(.*?)\*\*"
-
-        # Replacement pattern with single asterisks
-        replacement = r"*\1*"
-
-        # Substitute occurrences of the pattern with the replacement
-        whatsapp_style_text = re.sub(pattern, replacement, text)
-
-        return whatsapp_style_text
-
-    async def _process_whatsapp_message(self, body):
-        # Extract WhatsApp message details
-        wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
-        name = body["entry"][0]["changes"][0]["value"]["contacts"][0]["profile"]["name"]
-        
-        message = body["entry"][0]["changes"][0]["value"]["messages"][0]
-        message_body = message["text"]["body"]
-
-        session = await self.chat_db.get_or_create_session(wa_id)
-
-        # Save user message
-        await self.chat_db.save_message(ChatMessage(
-            session_id=session.id,
-            whatsapp_id=wa_id,
-            role="user",
-            content=message_body
-        ))
-
-        # Get recent chat history
-        recent_messages = await self.chat_db.get_recent_messages(wa_id, limit=CHAT_HISTORY_LIMIT)
-        chat_history = [
-            {"role": msg.role, "content": msg.content}
-            for msg in reversed(recent_messages)
-        ]
-
-        # Generate response using RAG service
-        response = await self.rag_service.query(
-            message=message_body,
-            chat_history=chat_history,
+    def _is_status_update(self, body):
+        """
+        Check if the webhook payload contains a status update.
+        """
+        return (
+            body.get("entry", [{}])[0]
+            .get("changes", [{}])[0]
+            .get("value", {})
+            .get("statuses")
         )
-
-        # Save assistant message
-        await self.chat_db.save_message(ChatMessage(
-            session_id=session.id,
-            whatsapp_id=wa_id,
-            role="assistant",
-            content=response.answer
-        ))
-
-        # Format and send WhatsApp message
-        data = self._get_text_message_input(wa_id, response.answer)
-        self._send_message(data)
-
 
     def _is_valid_whatsapp_message(self, body):
         """
@@ -181,5 +59,57 @@ class WhatsappService():
             and body["entry"][0].get("changes")
             and body["entry"][0]["changes"][0].get("value")
             and body["entry"][0]["changes"][0]["value"].get("messages")
-            and body["entry"][0]["changes"][0]["value"]["messages"][0]
+        )
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
+    def _send_message(self, data):
+        """
+        Send a message using the WhatsApp Cloud API with retry logic.
+        """
+        headers = {
+            "Content-type": "application/json", 
+            "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
+        }
+        url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
+
+        response = requests.post(url, data=data, headers=headers, timeout=10)
+        response.raise_for_status()  # Raises an exception for non-2xx responses
+        logging.info(f"Message sent successfully: {response.json()}")
+        return response
+
+    def _process_text_for_whatsapp(self, text):
+        """
+        Format text for WhatsApp by replacing styling markers.
+        """
+        text = re.sub(r"\\【.*?\\】", "", text).strip()  # Remove brackets
+        text = re.sub(r"\\*\\*(.*?)\\*\\*", r"*\\1*", text)  # Replace bold (**word**) with WhatsApp bold (*word*)
+        return text
+
+    async def _process_whatsapp_message(self, body):
+        """
+        Process a valid WhatsApp message and generate a response using RAG.
+        """
+        wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
+        message_body = body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+
+        response_answer = await self.process_chat_message(user_id=wa_id, message_body=message_body)
+
+        # Format response for WhatsApp
+        formatted_response = self._process_text_for_whatsapp(response_answer)
+        data = self._get_text_message_input(wa_id, formatted_response)
+        self._send_message(data)
+        return data
+
+    def _get_text_message_input(self, recipient, text):
+        """
+        Generate the payload for sending a WhatsApp text message.
+        """
+        return json.dumps(
+            {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": recipient,
+                "type": "text",
+                "text": {"preview_url": False, "body": text},
+            }
         )
