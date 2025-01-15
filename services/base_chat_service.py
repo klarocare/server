@@ -1,7 +1,9 @@
+import logging
+
 from repositories.chat import MessageRepository, SessionRepository
-from schemas.chat_schema import ChatMessage
 from utils.constants import CHAT_HISTORY_LIMIT
 from services.rag_service import RAGService
+from models.chat import UserSession, ChatMessage
 
 
 class BaseChatService:
@@ -16,30 +18,26 @@ class BaseChatService:
         query the RAG service, and return a response.
         """
         # Get or create user session
-        session = await self.session_repo.get_or_create_session(user_id)
+        session = await UserSession.get_or_create_session(user_id)
 
-        # Save user message
-        await self.message_repo.create(
-            ChatMessage(
+        msg = ChatMessage(
                 session_id=session.id,
                 whatsapp_id=user_id,
                 role="user",
                 content=message_body,
             )
-        )
+        # Save user message
+        await msg.insert()
 
-        # Retrieve chat history
-        chat_history = await self.message_repo.get_recent_messages(
-            whatsapp_id=user_id,
-            limit=CHAT_HISTORY_LIMIT
-        )
+        # TODO: Retrieve chat history, implement the method in the ChatMessage class
+        chat_history = []
         formatted_history = [{"role": msg.role, "content": msg.content} for msg in reversed(chat_history)]
 
         # Generate response using RAG service
         response = await self.rag_service.query(message=message_body, chat_history=formatted_history)
 
         # Save assistant message
-        await self.message_repo.create(
+        response_msg = self.message_repo.create(
             ChatMessage(
                 session_id=session.id,
                 whatsapp_id=user_id,
@@ -47,5 +45,6 @@ class BaseChatService:
                 content=response.answer,
             )
         )
+        await msg.insert()
 
         return response.answer

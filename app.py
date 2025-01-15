@@ -2,7 +2,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from beanie import init_beanie
 
+from models.chat import ChatMessage, UserSession
 from core.database import Database
 from routes import care_task_api, rag_api, whatsapp_api
 
@@ -19,6 +21,7 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     # Initialize database connection
     await Database.initialize()
+    await init_beanie(database=Database._instance.db_name, document_models=[ChatMessage, UserSession])
     yield
     # Close database connection
     await Database.close_db()
