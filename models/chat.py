@@ -25,3 +25,8 @@ class ChatMessage(MongoModel):
     role: str
     content: str
     metadata: Optional[Dict] = None
+
+    @classmethod
+    async def get_recent_messages(cls, whatsapp_id: str, limit: int = 10):
+        return await cls.find(cls.whatsapp_id == whatsapp_id).sort(+cls.created_at).limit(limit).to_list()
+        

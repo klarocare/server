@@ -34,7 +34,8 @@ class WhatsappService(BaseChatService):
             return json.dumps({"status": "ok"}), 200
 
         if self._is_valid_whatsapp_message(body):
-            return await self._process_whatsapp_message(body)
+            response = await self._process_whatsapp_message(body)
+            return response, 200
         else:
             return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
 
@@ -81,8 +82,12 @@ class WhatsappService(BaseChatService):
         """
         Format text for WhatsApp by replacing styling markers.
         """
-        text = re.sub(r"\\【.*?\\】", "", text).strip()  # Remove brackets
-        text = re.sub(r"\\*\\*(.*?)\\*\\*", r"*\\1*", text)  # Replace bold (**word**) with WhatsApp bold (*word*)
+        # Remove brackets
+        text = re.sub(r"【.*?】", "", text).strip()
+        
+        # Replace bold (**word**) with WhatsApp bold (*word*)
+        # Fixed pattern to properly handle the bold syntax
+        text = re.sub(r"\*\*(.*?)\*\*", r"*\1*", text)
         return text
 
     async def _process_whatsapp_message(self, body):
@@ -97,7 +102,7 @@ class WhatsappService(BaseChatService):
         # Format response for WhatsApp
         formatted_response = self._process_text_for_whatsapp(response_answer)
         data = self._get_text_message_input(wa_id, formatted_response)
-        # self._send_message(data)
+        self._send_message(data)
         return data
 
     def _get_text_message_input(self, recipient, text):
