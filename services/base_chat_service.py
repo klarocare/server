@@ -1,5 +1,3 @@
-import logging
-
 from utils.constants import CHAT_HISTORY_LIMIT
 from services.rag_service import RAGService
 from models.chat import UserSession, ChatMessage
