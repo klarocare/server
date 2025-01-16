@@ -4,9 +4,6 @@ import requests
 import re
 import os
 
-from tenacity import retry, stop_after_attempt, wait_fixed
-
-from services.rag_service import RAGService
 from services.base_chat_service import BaseChatService
 
 class WhatsappService(BaseChatService):
@@ -62,7 +59,6 @@ class WhatsappService(BaseChatService):
             and body["entry"][0]["changes"][0]["value"].get("messages")
         )
 
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(2))
     def _send_message(self, data):
         """
         Send a message using the WhatsApp Cloud API with retry logic.
@@ -72,8 +68,12 @@ class WhatsappService(BaseChatService):
             "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
         }
         url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
+        logging.info("Sending a request to WhatsApp to: " + f"{url}")
+        logging.info("With data: " + f"{data}")
 
         response = requests.post(url, data=data, headers=headers, timeout=10)
+        logging.info("Sent a request to WhatsApp")
+        logging.info(response)
         response.raise_for_status()  # Raises an exception for non-2xx responses
         logging.info(f"Message sent successfully: {response.json()}")
         return response
