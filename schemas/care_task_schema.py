@@ -2,11 +2,19 @@ from enum import Enum
 from typing import List
 from pydantic import BaseModel, Field
 
-from schemas.user_schema import Caregiver
+
+class Caregiver(BaseModel):
+    """
+    Caregiver relative model
+    """
+    name: str = Field(description="Name of caregiver relative.")
+    patient_name: str = Field(description="Name of the care task.")
+    challenges: str = Field(description="Challenges the caregiver has.")
 
 
 class GenerateRequest(BaseModel):
     caregiver: Caregiver
+
 
 class TaskCategory(Enum):
     MOBILITY = "mobility"
