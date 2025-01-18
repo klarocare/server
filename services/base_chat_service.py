@@ -13,6 +13,7 @@ class BaseChatService:
         query the RAG service, and return a response.
         """
         # Get or create user session
+        # TODO: If the user is newly created then send the welcoming message without saving it into database, just the template
         session = await UserSession.get_or_create_session(user_id)
 
         msg = ChatMessage(

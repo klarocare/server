@@ -5,6 +5,7 @@ import re
 import os
 
 from services.base_chat_service import BaseChatService
+# TODO: This service should include a function to send template message
 
 class WhatsappService(BaseChatService):
     def __init__(self):
@@ -27,6 +28,7 @@ class WhatsappService(BaseChatService):
         logging.info(f"Received webhook payload: {body}")
 
         if self._is_status_update(body):
+            # TODO: Handle the status updates smarter
             logging.info("Received a WhatsApp status update.")
             return json.dumps({"status": "ok"}), 200
 
