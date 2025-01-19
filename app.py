@@ -5,9 +5,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from beanie import init_beanie
 
-from models.chat import ChatMessage, UserSession
 from core.database import Database
-from routes import care_task_api, rag_api, whatsapp_api
+from models.chat import ChatMessage, UserSession
+from models.user import User
+from routes import care_task_api, auth_api
 
 
 for handler in logging.root.handlers[:]:
@@ -23,16 +24,18 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     # Initialize database connection
     await Database.initialize()
-    await init_beanie(database=Database._instance.db_name, document_models=[ChatMessage, UserSession])
+    await init_beanie(
+        database=Database._instance.db_name,
+        document_models=[ChatMessage, UserSession, User]
+    )
     yield
     # Close database connection
     await Database.close_db()
 
 app = FastAPI(root_path="/api", lifespan=lifespan)
 
-app.include_router(rag_api.router)
+app.include_router(auth_api.router)
 app.include_router(care_task_api.router)
-app.include_router(whatsapp_api.router)
 
 @app.get("/health-check")
 async def root():
