@@ -5,6 +5,8 @@ import re
 import os
 
 from services.base_chat_service import BaseChatService
+from models.chat import UserSession, ChatMessage
+# TODO: This service should include a function to send template message
 
 class WhatsappService(BaseChatService):
     def __init__(self):
@@ -27,12 +29,12 @@ class WhatsappService(BaseChatService):
         logging.info(f"Received webhook payload: {body}")
 
         if self._is_status_update(body):
+            # TODO: Handle the status updates smarter
             logging.info("Received a WhatsApp status update.")
             return json.dumps({"status": "ok"}), 200
 
         if self._is_valid_whatsapp_message(body):
-            response = await self._process_whatsapp_message(body)
-            return response, 200
+            return await self._process_whatsapp_message(body)
         else:
             return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
 
@@ -50,6 +52,7 @@ class WhatsappService(BaseChatService):
     def _is_valid_whatsapp_message(self, body):
         """
         Check if the incoming webhook event has a valid WhatsApp message structure.
+        and if the message has already been received befored, if so ignore the message.
         """
         return (
             body.get("object")
@@ -90,20 +93,54 @@ class WhatsappService(BaseChatService):
         text = re.sub(r"\*\*(.*?)\*\*", r"*\1*", text)
         return text
 
+    def _extract_whatsapp_message(self, body):
+        msg_type = body["entry"][0]["changes"][0]["value"]["messages"][0]["type"]
+        match msg_type:
+            case 'button':
+                return body["entry"][0]["changes"][0]["value"]["messages"][0]["button"]["text"]
+            case 'text':
+                return body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+            case _:
+                return "Error handling the message"
+        
+    async def _check_if_existing_message(self, body):
+        object_id = body["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+        msg = await ChatMessage.get_message_by_object_id(object_id)
+        logging.info(f"OBJECT ID IS: {object_id}")
+        logging.info(f"Message is: {msg}")
+        
+        if msg:
+            return object_id, True
+        else:
+            return object_id, False
+
+
     async def _process_whatsapp_message(self, body):
         """
         Process a valid WhatsApp message and generate a response using RAG.
         """
+        object_id, is_existing = await self._check_if_existing_message(body)
+
+        if is_existing:
+            return {"status": "error", "message": f"Message with object id {object_id} already exists"}, 400
+
         wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
-        message_body = body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
+        message_body = self._extract_whatsapp_message(body)
+        
+        # Get user session
+        session, is_new_user = await UserSession.get_or_create_session(wa_id)
 
-        response_answer = await self.process_chat_message(user_id=wa_id, message_body=message_body)
-
-        # Format response for WhatsApp
-        formatted_response = self._process_text_for_whatsapp(response_answer)
-        data = self._get_text_message_input(wa_id, formatted_response)
+        # Prepare a welcoming template message if the user is new, else from RAG pipeline
+        if is_new_user:
+            data = self._get_welcoming_message_input(wa_id)
+        else:
+            response_answer = await self.process_chat_message(session.id, wa_id, object_id, message_body)
+            formatted_answer = self._process_text_for_whatsapp(response_answer)
+            # Format response for WhatsApp
+            data = self._get_text_message_input(wa_id, formatted_answer)
+        
         self._send_message(data)
-        return data
+        return data, 200
 
     def _get_text_message_input(self, recipient, text):
         """
@@ -116,5 +153,24 @@ class WhatsappService(BaseChatService):
                 "to": recipient,
                 "type": "text",
                 "text": {"preview_url": False, "body": text},
+            }
+        )
+
+    def _get_welcoming_message_input(self, recipient):
+        """
+        Generate the payload for sending a welcoming WhatsApp text message.
+        """
+        return json.dumps(
+            {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": recipient,
+                "type": "template",
+                "template": {
+                    "name": "firstmessage",
+                    "language": {
+                        "code": "en"
+                        }
+                    }
             }
         )

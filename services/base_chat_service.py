@@ -7,25 +7,23 @@ class BaseChatService:
     def __init__(self):
         self.rag_service = RAGService.get_instance()
 
-    async def process_chat_message(self, user_id: str, message_body: str) -> str:
+    async def process_chat_message(self, user_id, wa_id: str, object_id, message_body: str) -> str:
         """
         Generic method to process a chat message, save it to the database,
         query the RAG service, and return a response.
         """
-        # Get or create user session
-        session = await UserSession.get_or_create_session(user_id)
-
         msg = ChatMessage(
-                session_id=session.id,
-                whatsapp_id=user_id,
+                session_id=user_id,
+                whatsapp_id=wa_id,
                 role="user",
+                object_id=object_id,
                 content=message_body,
             )
         # Save user message
         await msg.insert()
 
         # Get the recent messages as a list
-        chat_history = await ChatMessage.get_recent_messages(whatsapp_id=user_id, limit=CHAT_HISTORY_LIMIT)
+        chat_history = await ChatMessage.get_recent_messages(whatsapp_id=wa_id, limit=CHAT_HISTORY_LIMIT)
         formatted_history = [{"role": msg.role, "content": msg.content} for msg in reversed(chat_history)]
 
         # Generate response using RAG service
@@ -33,8 +31,8 @@ class BaseChatService:
 
         # Save assistant message
         response_msg = ChatMessage(
-            session_id=session.id,
-            whatsapp_id=user_id,
+            session_id=user_id,
+            whatsapp_id=wa_id,
             role="assistant",
             content=response.answer,
             )
