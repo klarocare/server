@@ -102,17 +102,19 @@ class WhatsappService(BaseChatService):
                 return body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
             case _:
                 return "Error handling the message"
-        
+    
     async def _check_if_existing_message(self, body):
         object_id = body["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+
+        # Check for original message's response
         msg = await ChatMessage.get_message_by_object_id(object_id)
-        logging.info(f"OBJECT ID IS: {object_id}")
-        logging.info(f"Message is: {msg}")
+        response_msg = await ChatMessage.get_message_by_object_id(f"response_{object_id}")
+
+        logging.info(f"Object ID is: {object_id}")
         
-        if msg:
+        if msg or response_msg:
             return object_id, True
-        else:
-            return object_id, False
+        return object_id, False
 
 
     async def _process_whatsapp_message(self, body):
@@ -122,7 +124,7 @@ class WhatsappService(BaseChatService):
         object_id, is_existing = await self._check_if_existing_message(body)
 
         if is_existing:
-            return {"status": "error", "message": f"Message with object id {object_id} already exists"}, 400
+            return json.dumps({"status": "error", "message": f"Message with object id {object_id} already exists"}), 400
 
         wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
         message_body = self._extract_whatsapp_message(body)
@@ -132,7 +134,17 @@ class WhatsappService(BaseChatService):
 
         # Prepare a welcoming template message if the user is new, else from RAG pipeline
         if is_new_user:
+            # TODO: We are not savig user's message as well
             data = self._get_welcoming_message_input(wa_id)
+            # Save welcome message response
+            welcome_msg = ChatMessage(
+                session_id=session.id,
+                whatsapp_id=wa_id,
+                role="assistant",
+                object_id=f"response_{object_id}",
+                content="Welcome template message"
+            )
+            await welcome_msg.insert()
         else:
             response_answer = await self.process_chat_message(session.id, wa_id, object_id, message_body)
             formatted_answer = self._process_text_for_whatsapp(response_answer)

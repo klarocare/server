@@ -89,6 +89,7 @@ class RAGService:
             )
         )
 
+        # Retriever takes a question as an input, and returns the related Documents to that question
         retriever = vectorstore.as_retriever(
             **self.config['retriever_args']
         )
@@ -162,7 +163,7 @@ class RAGService:
             "Keep the original language and the tone of voice:\n"
             f"{response['answer']}"
         )
-
+        # TODO: Not sure about this invoke, but still we could use this for restricting the context as well - since we are making the call anyway
         final_response = llm.invoke(final_prompt)
 
         return RAGResponse(
