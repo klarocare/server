@@ -6,7 +6,7 @@ import os
 
 from services.base_chat_service import BaseChatService
 from models.chat import UserSession, ChatMessage
-# TODO: This service should include a function to send template message
+
 
 class WhatsappService(BaseChatService):
     def __init__(self):
@@ -29,12 +29,19 @@ class WhatsappService(BaseChatService):
         logging.info(f"Received webhook payload: {body}")
 
         if self._is_status_update(body):
-            # TODO: Handle the status updates smarter
             logging.info("Received a WhatsApp status update.")
             return json.dumps({"status": "ok"}), 200
 
         if self._is_valid_whatsapp_message(body):
-            return await self._process_whatsapp_message(body)
+            # Check for duplicate message
+            object_id, is_existing = await self._check_if_existing_message(body)
+            
+            if is_existing:
+                logging.info(f"Message with object id {object_id} already exists")
+                return json.dumps({"status": "ok"}), 200
+
+            response = await self._process_whatsapp_message(body)
+            return json.dumps({"status": "accepted", "response": response}), 200
         else:
             return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
 
@@ -71,12 +78,9 @@ class WhatsappService(BaseChatService):
             "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
         }
         url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
-        logging.info("Sending a request to WhatsApp to: " + f"{url}")
-        logging.info("With data: " + f"{data}")
+        logging.info(f"Sending message with data : {data}")
 
         response = requests.post(url, data=data, headers=headers, timeout=10)
-        logging.info("Sent a request to WhatsApp")
-        logging.info(response)
         response.raise_for_status()  # Raises an exception for non-2xx responses
         logging.info(f"Message sent successfully: {response.json()}")
         return response
@@ -109,8 +113,6 @@ class WhatsappService(BaseChatService):
         # Check for original message's response
         msg = await ChatMessage.get_message_by_object_id(object_id)
         response_msg = await ChatMessage.get_message_by_object_id(f"response_{object_id}")
-
-        logging.info(f"Object ID is: {object_id}")
         
         if msg or response_msg:
             return object_id, True
@@ -121,32 +123,39 @@ class WhatsappService(BaseChatService):
         """
         Process a valid WhatsApp message and generate a response using RAG.
         """
-        object_id, is_existing = await self._check_if_existing_message(body)
-
-        if is_existing:
-            return json.dumps({"status": "error", "message": f"Message with object id {object_id} already exists"}), 400
-
         wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
+        object_id = body["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+
         message_body = self._extract_whatsapp_message(body)
         
         # Get user session
-        session, is_new_user = await UserSession.get_or_create_session(wa_id)
+        user, is_new_user = await UserSession.get_or_create_session(wa_id)
 
         # Prepare a welcoming template message if the user is new, else from RAG pipeline
         if is_new_user:
-            # TODO: We are not savig user's message as well
-            data = self._get_welcoming_message_input(wa_id)
+            # Insert user message
+            msg = ChatMessage(
+                session_id=user.id,
+                whatsapp_id=wa_id,
+                role="user",
+                object_id=object_id,
+                content=message_body
+            )
+            await msg.insert()
+
             # Save welcome message response
             welcome_msg = ChatMessage(
-                session_id=session.id,
+                session_id=user.id,
                 whatsapp_id=wa_id,
                 role="assistant",
                 object_id=f"response_{object_id}",
                 content="Welcome template message"
             )
             await welcome_msg.insert()
+
+            data = self._get_welcoming_message_input(wa_id)
         else:
-            response_answer = await self.process_chat_message(session.id, wa_id, object_id, message_body)
+            response_answer = await self.process_chat_message(user, object_id, message_body)
             formatted_answer = self._process_text_for_whatsapp(response_answer)
             # Format response for WhatsApp
             data = self._get_text_message_input(wa_id, formatted_answer)

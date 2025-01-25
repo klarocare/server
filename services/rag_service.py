@@ -156,16 +156,6 @@ class RAGService:
 
         unified_context = self._extract_context(response)
 
-        final_prompt = (
-            "Here is the retrieved context:\n"
-            f"Videos: {unified_context['videos']}\n\n"
-            "Based on this context, generate an accurate, brief (must fit a mobile screen chat format) and user-friendly response\n"
-            "Keep the original language and the tone of voice:\n"
-            f"{response['answer']}"
-        )
-        # TODO: Not sure about this invoke, but still we could use this for restricting the context as well - since we are making the call anyway
-        final_response = llm.invoke(final_prompt)
-
         return RAGResponse(
             sources=list({item.metadata['source'].replace("utils/db/", "").replace(".pdf", "") for item in response["context"]}),
             thumbnails=[
@@ -173,5 +163,5 @@ class RAGService:
                 for video in unified_context["videos"] if video['url']
             ],
             video_URLs=[video["url"] for video in unified_context["videos"]],
-            answer=final_response.content,
+            answer=response["answer"],
         )

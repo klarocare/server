@@ -1,5 +1,4 @@
 import json
-from typing import Dict
 
 from fastapi import Query, APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -41,19 +40,6 @@ async def handle_webhook(body_str: str = Depends(verify_signature)):
     try:
         body = json.loads(body_str)
         response_body, status_code = await service.handle_message(body)
-        return JSONResponse(content=json.loads(response_body), status_code=status_code)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON provided")
-    
-## Test endpoint
-
-@router.post("/test")
-async def test_webhook(body_str: Dict):
-    """
-    Handle incoming webhook events from WhatsApp.
-    """
-    try:
-        response_body, status_code = await service.handle_message(body_str)
         return JSONResponse(content=json.loads(response_body), status_code=status_code)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON provided")
