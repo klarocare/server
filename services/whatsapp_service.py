@@ -22,7 +22,7 @@ class WhatsappService(BaseChatService):
         logging.info("VERIFICATION_FAILED")
         raise ValueError("Verification failed")
 
-    async def handle_message(self, body):
+    async def handle_message(self, body, background_tasks):
         """
         Handle incoming webhook events from the WhatsApp API.
         """
@@ -33,17 +33,26 @@ class WhatsappService(BaseChatService):
             return json.dumps({"status": "ok"}), 200
 
         if self._is_valid_whatsapp_message(body):
+            background_tasks.add_task(self.process_message_background, body)
+            return json.dumps({"status": "accepted"}), 200
+        else:
+            return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
+    
+    async def process_message_background(self, body):
+        """
+        Process message in background
+        """
+        try:
             # Check for duplicate message
             object_id, is_existing = await self._check_if_existing_message(body)
             
             if is_existing:
                 logging.info(f"Message with object id {object_id} already exists")
-                return json.dumps({"status": "ok"}), 200
+                return
 
-            response = await self._process_whatsapp_message(body)
-            return json.dumps({"status": "accepted", "response": response}), 200
-        else:
-            return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
+            await self._process_whatsapp_message(body)
+        except Exception as e:
+            logging.error(f"Error processing message in background: {str(e)}")
 
     def _is_status_update(self, body):
         """
@@ -149,7 +158,7 @@ class WhatsappService(BaseChatService):
                 whatsapp_id=wa_id,
                 role="assistant",
                 object_id=f"response_{object_id}",
-                content="Welcome template message"
+                content="Welcome template message" # TODO: Put the actual content here
             )
             await welcome_msg.insert()
 
@@ -161,7 +170,6 @@ class WhatsappService(BaseChatService):
             data = self._get_text_message_input(wa_id, formatted_answer)
         
         self._send_message(data)
-        return data, 200
 
     def _get_text_message_input(self, recipient, text):
         """

@@ -19,7 +19,7 @@ from services import llm
 from utils.constants import RAG_CONFIG
 
 
-
+# TODO: Burada eksik var, pipeline tam istenilen gibi çalışmıyor, benzer mesajlar geliyor üst üste, yes cevabını pek anlamıyor
 class RAGService:
     _instance = None
     _lock = threading.Lock()  # To ensure thread safety
