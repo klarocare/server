@@ -34,6 +34,7 @@ class WhatsappService(BaseChatService):
 
         if self._is_valid_whatsapp_message(body):
             background_tasks.add_task(self.process_message_background, body)
+            # TODO: Here we also need to send read request to WhatsApp API: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/mark-message-as-read
             return json.dumps({"status": "accepted"}), 200
         else:
             return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
