@@ -186,14 +186,15 @@ class WhatsappService(BaseChatService):
 
             data = self._get_welcoming_message_input(wa_id)
         else:
-            response_answer = await self.process_chat_message(user, object_id, message_body)
-            formatted_answer = self._process_text_for_whatsapp(response_answer)
+            response = await self.process_chat_message(user, object_id, message_body)
+            formatted_answer = self._process_text_for_whatsapp(response.answer)
+            is_preview_url = True if response.video_URLs else False
             # Format response for WhatsApp
-            data = self._get_text_message_input(wa_id, formatted_answer)
+            data = self._get_text_message_input(wa_id, formatted_answer, is_preview_url)
         
         self._send_message(data)
 
-    def _get_text_message_input(self, recipient, text):
+    def _get_text_message_input(self, recipient, text, is_preview_url):
         """
         Generate the payload for sending a WhatsApp text message.
         """
@@ -203,7 +204,7 @@ class WhatsappService(BaseChatService):
                 "recipient_type": "individual",
                 "to": recipient,
                 "type": "text",
-                "text": {"preview_url": False, "body": text},
+                "text": {"preview_url": is_preview_url, "body": text},
             }
         )
 

@@ -1,9 +1,11 @@
 import json
 import os
 import logging
+import threading
 import urllib.parse
 from typing import List, Dict, TypedDict
 
+import bs4
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, BaseMessage
 from langgraph.prebuilt import ToolNode
 from langgraph.graph import END
@@ -11,12 +13,14 @@ from langgraph.graph import MessagesState, StateGraph
 from langchain_core.tools import tool
 from langchain_openai import AzureOpenAIEmbeddings
 from langchain_core.vectorstores import VectorStore
-from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_community.document_loaders import PyPDFDirectoryLoader, WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_core.vectorstores import InMemoryVectorStore
 
 from services import llm
+from utils.constants import AGENT_CONFIG
+from schemas.rag_schema import RAGResponse
 
 
 # Type for managing conversation state
@@ -27,11 +31,29 @@ class MessagesState(TypedDict):
 
 
 class AgentService:
-    def __init__(self, config: Dict):
-        self.config = config
+    _instance = None
+    _lock = threading.Lock()  # To ensure thread safety
+
+    def __new__(cls, *args, **kwargs):
+        """Control the instantiation process."""
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        self.config = AGENT_CONFIG
         self.video_store = self._load_video_store()
         self.vectorstore = self._setup_vectorstore()
         self.graph = self._create_graph()
+
+    @classmethod
+    def get_instance(cls):
+        """Return the singleton instance of RAGService."""
+        if not cls._instance:
+            cls._instance = cls()
+        return cls._instance
         
     def _load_video_store(self) -> List[Dict]:
         """Load video information from JSON file."""
@@ -44,12 +66,23 @@ class AgentService:
         logging.info("Loading the documents")
         loader = PyPDFDirectoryLoader(self.config['db_path'])
         docs = loader.load()
+
+        # Load the website information
+        loader = WebBaseLoader(
+            web_paths=("https://www.pflege.de/pflegekasse-pflegefinanzierung/pflegeleistungen/pflegegeld/",),
+            bs_kwargs=dict(
+                parse_only=bs4.SoupStrainer(
+                    class_=("article-content", "post-title", "article-head",)
+                )
+            ),
+        )
+        web = loader.load()
         
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000, 
             chunk_overlap=200
         )
-        splits = text_splitter.split_documents(docs)
+        splits = text_splitter.split_documents(docs + web)
         
         # Create video documents
         video_documents = [
@@ -176,7 +209,7 @@ class AgentService:
         
         return graph_builder.compile()
 
-    async def query(self, message: str, chat_history: List[Dict]) -> Dict:
+    async def query(self, message: str, chat_history: List[Dict]) -> RAGResponse:
         """Process a query through the RAG system."""
         # Initialize state with message and chat history
         state = MessagesState(
@@ -206,13 +239,13 @@ class AgentService:
             if doc.metadata.get("type") == "video"
         ]
         
-        return {
-            "answer": answer,
-            "sources": list({doc.metadata['source'].replace("utils/db/", "").replace(".pdf", "") 
+        return RAGResponse(
+            answer=answer,
+            sources=list({doc.metadata['source'].replace("utils/db/", "").replace(".pdf", "") 
                            for doc in final_state["context"]}),
-            "thumbnails": [
+            thumbnails=[
                 f"https://img.youtube.com/vi/{urllib.parse.parse_qs(urllib.parse.urlparse(video['url']).query).get('v', [None])[0]}/0.jpg"
                 for video in video_sources if video['url']
             ],
-            "video_URLs": [video["url"] for video in video_sources]
-        }
+            video_URLs=[video["url"] for video in video_sources]
+        )

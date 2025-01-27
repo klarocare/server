@@ -1,13 +1,14 @@
 import logging
 
 from utils.constants import CHAT_HISTORY_LIMIT
-from services.rag_service import RAGService
+from services.agent_service import AgentService
 from models.chat import UserSession, ChatMessage
 
 
 class BaseChatService:
     def __init__(self):
-        self.rag_service = RAGService.get_instance()
+        # this easily can be changed to RAGService as well
+        self.service = AgentService.get_instance()
 
     async def process_chat_message(self, user: UserSession, object_id: str, message_body: str) -> str:
         # Get chat history
@@ -19,7 +20,7 @@ class BaseChatService:
             logging.info(msg)
 
         # Generate response
-        response = self.rag_service.query(message=message_body, chat_history=formatted_history)
+        response = await self.service.query(message=message_body, chat_history=formatted_history)
         logging.info(f"Response of the RAG: {response.answer}")
 
         # Save user message with object_id
@@ -42,4 +43,4 @@ class BaseChatService:
         )
         await response_msg.insert()
 
-        return response.answer
+        return response
