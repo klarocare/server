@@ -34,7 +34,6 @@ class WhatsappService(BaseChatService):
 
         if self._is_valid_whatsapp_message(body):
             background_tasks.add_task(self.process_message_background, body)
-            # TODO: Here we also need to send read request to WhatsApp API: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/mark-message-as-read
             return json.dumps({"status": "accepted"}), 200
         else:
             return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
@@ -43,6 +42,7 @@ class WhatsappService(BaseChatService):
         """
         Process message in background
         """
+        self._send_read_message(body)
         try:
             # Check for duplicate message
             object_id, is_existing = await self._check_if_existing_message(body)
@@ -54,6 +54,27 @@ class WhatsappService(BaseChatService):
             await self._process_whatsapp_message(body)
         except Exception as e:
             logging.error(f"Error processing message in background: {str(e)}")
+
+    def _send_read_message(self, body):
+        """
+        Send a read request using the WhatsApp Cloud API.
+        """
+        message_id = body["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+        data = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": message_id
+        }
+        headers = {
+            "Content-type": "application/json", 
+            "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
+        }
+        url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
+        logging.info(f"Sending read request for message: {message_id}")
+
+        response = requests.post(url, data=data, headers=headers, timeout=10)
+        response.raise_for_status()  # Raises an exception for non-2xx responses
+        logging.info(f"Read request sent successfully: {response.json()}")
 
     def _is_status_update(self, body):
         """
