@@ -9,7 +9,8 @@ import bs4
 from langchain_core.messages import SystemMessage, AIMessage, HumanMessage, BaseMessage
 from langgraph.prebuilt import ToolNode
 from langgraph.graph import END
-from langgraph.graph import MessagesState, StateGraph
+from langgraph.graph import StateGraph
+from langgraph.prebuilt import tools_condition
 from langchain_core.tools import tool
 from langchain_openai import AzureOpenAIEmbeddings
 from langchain_core.vectorstores import VectorStore
@@ -32,7 +33,7 @@ class MessagesState(TypedDict):
 
 class AgentService:
     _instance = None
-    _lock = threading.Lock()  # To ensure thread safety
+    _lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
         """Control the instantiation process."""
@@ -43,17 +44,11 @@ class AgentService:
         return cls._instance
     
     def __init__(self):
+        logging.info("NEW VERSION ;)")
         self.config = AGENT_CONFIG
         self.video_store = self._load_video_store()
         self.vectorstore = self._setup_vectorstore()
         self.graph = self._create_graph()
-
-    @classmethod
-    def get_instance(cls):
-        """Return the singleton instance of RAGService."""
-        if not cls._instance:
-            cls._instance = cls()
-        return cls._instance
         
     def _load_video_store(self) -> List[Dict]:
         """Load video information from JSON file."""
@@ -63,6 +58,8 @@ class AgentService:
     def _setup_vectorstore(self) -> VectorStore:
         """Initialize and populate the vector store with documents and video content."""
         # Load PDF documents
+        if hasattr(self, 'vectorstore'):  # Return cached vector store if it exists
+            return self.vectorstore
         logging.info("Loading the documents")
         loader = PyPDFDirectoryLoader(self.config['db_path'])
         docs = loader.load()
@@ -104,13 +101,14 @@ class AgentService:
         all_documents = splits + video_documents
         
         logging.info("Setting up the vector store")
-        return InMemoryVectorStore.from_documents(
+        self.vectorstore = InMemoryVectorStore.from_documents(
             documents=all_documents,
             embedding=AzureOpenAIEmbeddings(
                 model=self.config['embedding_model'],
                 api_version=self.config['api_version']
             )
         )
+        return self.vectorstore
 
     def _create_retrieve_tool(self):
         """Create the retrieval tool."""
@@ -129,16 +127,43 @@ class AgentService:
             return serialized, retrieved_docs
         
         return retrieve
+    
+    def _create_tools(self):
+        """Create and return all tools used in the graph."""
+        return [self._create_retrieve_tool()]
+    
+    def _extract_tool_messages(self, messages: List[BaseMessage]) -> List[BaseMessage]:
+        """Extract recent tool messages from the state."""
+        recent_tool_messages = []
+        for message in reversed(messages):
+            if message.type == "tool":
+                recent_tool_messages.append(message)
+            else:
+                break
+        return recent_tool_messages[::-1]
+    
+    def _construct_prompt(self, system_message: SystemMessage, chat_history: List[Dict], conversation_messages: List[BaseMessage]) -> List[BaseMessage]:
+        """Construct the final prompt for the LLM."""
+        logging.info("Constructing the prompt and iterating over the chat_history")
+        logging.info(chat_history)
+        logging.info("Conversation messages")
+        logging.info(conversation_messages)
+        chat_history_messages = [
+            HumanMessage(content=msg["content"]) if msg["role"] == "user" else AIMessage(content=msg["content"])
+            for msg in chat_history
+        ]
+        return [system_message] + chat_history_messages + conversation_messages
 
     def _create_graph(self):
         """Create the LangGraph workflow."""
-        logging.info("Creating the retrieval graph")
-        retrieve = self._create_retrieve_tool()
-        
+
         def query_or_respond(state: MessagesState):
             """Generate tool call for retrieval or respond."""
-            llm_with_tools = llm.bind_tools([retrieve])
-            response = llm_with_tools.invoke(state["messages"])
+            # Include chat history in the messages
+            messages_with_history = state["chat_history"] + state["messages"]
+
+            llm_with_tools = llm.bind_tools(self._create_tools())
+            response = llm_with_tools.invoke(messages_with_history)
             logging.info(f"Response of the query_and_respond: {response}")
             return {"messages": [response]}
 
@@ -146,13 +171,8 @@ class AgentService:
             """Generate final answer using retrieved content."""
             # Get recent tool messages
             logging.info(f"Messages so far in generate function: {state['messages']}")
-            recent_tool_messages = []
-            for message in reversed(state["messages"]):
-                if message.type == "tool":
-                    recent_tool_messages.append(message)
-                else:
-                    break
-            tool_messages = recent_tool_messages[::-1]
+            tool_messages = self._extract_tool_messages(state["messages"])
+            logging.info(tool_messages)
 
             # Format prompt with retrieved context
             docs_content = "\n\n".join(doc.content for doc in tool_messages)
@@ -169,9 +189,9 @@ class AgentService:
                 if message.type in ("human", "system")
                 or (message.type == "ai" and not message.tool_calls)
             ]
-            
-            # Combine messages for final prompt
-            prompt = [system_message] + conversation_messages
+
+            # Include chat history in the final prompt
+            prompt = self._construct_prompt(system_message, state["chat_history"], conversation_messages)
             logging.info(f"Prompt of the generate function: {prompt}")
             
             # Generate response
@@ -181,12 +201,10 @@ class AgentService:
             return {"messages": [response], "context": [artifact for message in state["messages"] for artifact in message.artifact]}
 
         # Create the graph
-        
-
         graph_builder = StateGraph(MessagesState)
         
         # Create tool node
-        tools = ToolNode([retrieve])
+        tools = ToolNode(self._create_tools())
         
         # Add nodes
         graph_builder.add_node("query_or_respond", query_or_respond)
@@ -194,8 +212,6 @@ class AgentService:
         graph_builder.add_node("generate", generate)
         
         # Set up the flow
-        from langgraph.prebuilt import tools_condition
-        
         graph_builder.set_entry_point("query_or_respond")
         graph_builder.add_conditional_edges(
             "query_or_respond",
@@ -249,7 +265,7 @@ class AgentService:
             )
 
         except Exception as e:
-            logging.info(f"Got exception invoking the RAG {e}")
+            logging.error(f"Error invoking RAG: {e}", exc_info=True)
 
             return RAGResponse(
                 answer=GENERATION_FAILED_RESPONSE,

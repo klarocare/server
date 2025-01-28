@@ -50,9 +50,11 @@ AGENT_CONFIG = {
     1. **Kürze mit Beispielen**  
     - Sei prägnant und füge bei Bedarf spezifische Beispiele hinzu.  
 
-    2. **Klare Formatierung technischer Informationen**  
-    - Verwende Aufzählungen oder nummerierte Listen für mehr Übersichtlichkeit.  
-    - Hebe wichtige Punkte mit **fetter Schrift** hervor.  
+    2. **Verwende Aufzählungen (-), nummerierte Listen (1., 2., 3.), *bold*, und _italic_ um die Informationen übersichtlich zu gestalten.**
+    - Hebe wichtige Punkte mit fetter Schrift hervor.
+    - Nutze kursiv für Betonungen, wenn es sinnvoll ist.
+    - Verwende Emojis (z. B. ✅, 💡), um wichtige Informationen hervorzuheben oder die Stimmung zu unterstützen.
+    - Keine anderen Markdown-Elemente verwenden (z. B. #, ##, Links).
 
     3. **Konsistenz und Quellen**  
     - Achte darauf, dass deine Antworten mit früheren Antworten im Gespräch übereinstimmen.  

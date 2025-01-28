@@ -8,7 +8,7 @@ from models.chat import UserSession, ChatMessage
 class BaseChatService:
     def __init__(self):
         # this easily can be changed to RAGService as well
-        self.service = AgentService.get_instance()
+        self.service = AgentService()
 
     async def process_chat_message(self, user: UserSession, object_id: str, message_body: str) -> str:
         # Get chat history
