@@ -13,7 +13,7 @@ class BaseChatService:
     async def process_chat_message(self, user: UserSession, object_id: str, message_body: str) -> str:
         # Get chat history
         chat_history = await ChatMessage.get_recent_messages(whatsapp_id=user.whatsapp_id, limit=CHAT_HISTORY_LIMIT)
-        formatted_history = [{"role": msg.role, "content": msg.content} for msg in reversed(chat_history)]
+        formatted_history = [{"role": msg.role, "content": msg.content} for msg in chat_history]
 
         logging.info("Printing chat history")
         for msg in formatted_history:

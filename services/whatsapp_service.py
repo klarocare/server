@@ -164,26 +164,6 @@ class WhatsappService(BaseChatService):
 
         # Prepare a welcoming template message if the user is new, else from RAG pipeline
         if is_new_user:
-            # Insert user message
-            msg = ChatMessage(
-                session_id=user.id,
-                whatsapp_id=wa_id,
-                role="user",
-                object_id=object_id,
-                content=message_body
-            )
-            await msg.insert()
-
-            # Save welcome message response
-            welcome_msg = ChatMessage(
-                session_id=user.id,
-                whatsapp_id=wa_id,
-                role="assistant",
-                object_id=f"response_{object_id}",
-                content="Welcome template message" # TODO: Put the actual content here
-            )
-            await welcome_msg.insert()
-
             data = self._get_welcoming_message_input(wa_id)
         else:
             response = await self.process_chat_message(user, object_id, message_body)
@@ -219,9 +199,9 @@ class WhatsappService(BaseChatService):
                 "to": recipient,
                 "type": "template",
                 "template": {
-                    "name": "firstmessage",
+                    "name": "firstmessage_de",
                     "language": {
-                        "code": "en"
+                        "code": "de"
                         }
                     }
             }

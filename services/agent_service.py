@@ -19,7 +19,7 @@ from langchain_core.documents import Document
 from langchain_core.vectorstores import InMemoryVectorStore
 
 from services import llm
-from utils.constants import AGENT_CONFIG
+from utils.constants import AGENT_CONFIG, GENERATION_FAILED_RESPONSE
 from schemas.rag_schema import RAGResponse
 
 
@@ -177,8 +177,6 @@ class AgentService:
             # Generate response
             response = llm.invoke(prompt)
             logging.info(f"Response of the generate: {response}")
-
-            # TODO: Here we can add the context like "contex": [artifact for artifact in message.artifact for message in state["messages"]]
             
             return {"messages": [response], "context": [artifact for message in state["messages"] for artifact in message.artifact]}
 
@@ -219,33 +217,43 @@ class AgentService:
         )
         
         # Run the graph
-        final_state = await self.graph.ainvoke(state)
-        logging.info(f"Final state in query function: {final_state}")
-        
-        # Get the final AI message
-        for message in reversed(final_state["messages"]):
-            if isinstance(message, AIMessage):
-                answer = message.content
-                break
-        
-        # Process video information
-        video_sources = [
-            {
-                "title": doc.metadata.get("title"),
-                "description": doc.metadata.get("description"),
-                "url": doc.metadata.get("url"),
-            }
-            for doc in final_state["context"]
-            if doc.metadata.get("type") == "video"
-        ]
-        
-        return RAGResponse(
-            answer=answer,
-            sources=list({doc.metadata['source'].replace("utils/db/", "").replace(".pdf", "") 
-                           for doc in final_state["context"]}),
-            thumbnails=[
-                f"https://img.youtube.com/vi/{urllib.parse.parse_qs(urllib.parse.urlparse(video['url']).query).get('v', [None])[0]}/0.jpg"
-                for video in video_sources if video['url']
-            ],
-            video_URLs=[video["url"] for video in video_sources]
-        )
+        try:
+            final_state = await self.graph.ainvoke(state)
+            logging.info(f"Final state in query function: {final_state}")
+            # Get the final AI message
+            for message in reversed(final_state["messages"]):
+                if isinstance(message, AIMessage):
+                    answer = message.content
+                    break
+            
+            # Process video information
+            video_sources = [
+                {
+                    "title": doc.metadata.get("title"),
+                    "description": doc.metadata.get("description"),
+                    "url": doc.metadata.get("url"),
+                }
+                for doc in final_state["context"]
+                if doc.metadata.get("type") == "video"
+            ]
+
+            return RAGResponse(
+                answer=answer,
+                sources=list({doc.metadata['source'].replace("utils/db/", "").replace(".pdf", "") 
+                            for doc in final_state["context"]}),
+                thumbnails=[
+                    f"https://img.youtube.com/vi/{urllib.parse.parse_qs(urllib.parse.urlparse(video['url']).query).get('v', [None])[0]}/0.jpg"
+                    for video in video_sources if video['url']
+                ],
+                video_URLs=[video["url"] for video in video_sources]
+            )
+
+        except Exception as e:
+            logging.info(f"Got exception invoking the RAG {e}")
+
+            return RAGResponse(
+                answer=GENERATION_FAILED_RESPONSE,
+                sources=[],
+                thumbnails=[],
+                video_URLs=[]
+            )
