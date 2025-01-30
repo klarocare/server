@@ -6,7 +6,7 @@ import os
 
 from services.base_chat_service import BaseChatService
 from models.chat import UserSession, ChatMessage
-# TODO: This service should include a function to send template message
+
 
 class WhatsappService(BaseChatService):
     def __init__(self):
@@ -22,21 +22,59 @@ class WhatsappService(BaseChatService):
         logging.info("VERIFICATION_FAILED")
         raise ValueError("Verification failed")
 
-    async def handle_message(self, body):
+    async def handle_message(self, body, background_tasks):
         """
         Handle incoming webhook events from the WhatsApp API.
         """
         logging.info(f"Received webhook payload: {body}")
 
         if self._is_status_update(body):
-            # TODO: Handle the status updates smarter
             logging.info("Received a WhatsApp status update.")
             return json.dumps({"status": "ok"}), 200
 
         if self._is_valid_whatsapp_message(body):
-            return await self._process_whatsapp_message(body)
+            background_tasks.add_task(self.process_message_background, body)
+            return json.dumps({"status": "accepted"}), 200
         else:
             return json.dumps({"status": "error", "message": "Not a WhatsApp API event"}), 404
+    
+    async def process_message_background(self, body):
+        """
+        Process message in background
+        """
+        self._send_read_message(body)
+        try:
+            # Check for duplicate message
+            object_id, is_existing = await self._check_if_existing_message(body)
+            
+            if is_existing:
+                logging.info(f"Message with object id {object_id} already exists")
+                return
+
+            await self._process_whatsapp_message(body)
+        except Exception as e:
+            logging.error(f"Error processing message in background: {str(e)}")
+
+    def _send_read_message(self, body):
+        """
+        Send a read request using the WhatsApp Cloud API.
+        """
+        message_id = body["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+        data = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": message_id
+        }
+        headers = {
+            "Content-type": "application/json", 
+            "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
+        }
+        url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
+        logging.info(f"Sending read request for message: {message_id}")
+
+        response = requests.post(url, data=data, headers=headers, timeout=10)
+        response.raise_for_status()  # Raises an exception for non-2xx responses
+        logging.info(f"Read request sent successfully: {response.json()}")
 
     def _is_status_update(self, body):
         """
@@ -71,12 +109,9 @@ class WhatsappService(BaseChatService):
             "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
         }
         url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
-        logging.info("Sending a request to WhatsApp to: " + f"{url}")
-        logging.info("With data: " + f"{data}")
+        logging.info(f"Sending message with data : {data}")
 
         response = requests.post(url, data=data, headers=headers, timeout=10)
-        logging.info("Sent a request to WhatsApp")
-        logging.info(response)
         response.raise_for_status()  # Raises an exception for non-2xx responses
         logging.info(f"Message sent successfully: {response.json()}")
         return response
@@ -102,47 +137,44 @@ class WhatsappService(BaseChatService):
                 return body["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"]
             case _:
                 return "Error handling the message"
-        
+    
     async def _check_if_existing_message(self, body):
         object_id = body["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+
+        # Check for original message's response
         msg = await ChatMessage.get_message_by_object_id(object_id)
-        logging.info(f"OBJECT ID IS: {object_id}")
-        logging.info(f"Message is: {msg}")
+        response_msg = await ChatMessage.get_message_by_object_id(f"response_{object_id}")
         
-        if msg:
+        if msg or response_msg:
             return object_id, True
-        else:
-            return object_id, False
+        return object_id, False
 
 
     async def _process_whatsapp_message(self, body):
         """
         Process a valid WhatsApp message and generate a response using RAG.
         """
-        object_id, is_existing = await self._check_if_existing_message(body)
-
-        if is_existing:
-            return {"status": "error", "message": f"Message with object id {object_id} already exists"}, 400
-
         wa_id = body["entry"][0]["changes"][0]["value"]["contacts"][0]["wa_id"]
+        object_id = body["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+
         message_body = self._extract_whatsapp_message(body)
         
         # Get user session
-        session, is_new_user = await UserSession.get_or_create_session(wa_id)
+        user, is_new_user = await UserSession.get_or_create_session(wa_id)
 
         # Prepare a welcoming template message if the user is new, else from RAG pipeline
         if is_new_user:
             data = self._get_welcoming_message_input(wa_id)
         else:
-            response_answer = await self.process_chat_message(session.id, wa_id, object_id, message_body)
-            formatted_answer = self._process_text_for_whatsapp(response_answer)
+            response = await self.process_chat_message(user, object_id, message_body)
+            formatted_answer = self._process_text_for_whatsapp(response.answer)
+            is_preview_url = True if response.video_URLs else False
             # Format response for WhatsApp
-            data = self._get_text_message_input(wa_id, formatted_answer)
+            data = self._get_text_message_input(wa_id, formatted_answer, is_preview_url)
         
         self._send_message(data)
-        return data, 200
 
-    def _get_text_message_input(self, recipient, text):
+    def _get_text_message_input(self, recipient, text, is_preview_url):
         """
         Generate the payload for sending a WhatsApp text message.
         """
@@ -152,7 +184,7 @@ class WhatsappService(BaseChatService):
                 "recipient_type": "individual",
                 "to": recipient,
                 "type": "text",
-                "text": {"preview_url": False, "body": text},
+                "text": {"preview_url": is_preview_url, "body": text},
             }
         )
 
@@ -167,9 +199,9 @@ class WhatsappService(BaseChatService):
                 "to": recipient,
                 "type": "template",
                 "template": {
-                    "name": "firstmessage",
+                    "name": "firstmessage_de",
                     "language": {
-                        "code": "en"
+                        "code": "de"
                         }
                     }
             }
