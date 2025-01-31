@@ -16,7 +16,7 @@ class BaseChatService:
         formatted_history = [{"role": msg.role, "content": msg.content} for msg in chat_history]
 
         # Generate response
-        response = await self.service.query(message=message_body, chat_history=formatted_history)
+        response = self.service.query(message=message_body, chat_history=formatted_history)
         logging.info(f"Response of the RAG: {response.answer}")
 
         # Save user message with object_id

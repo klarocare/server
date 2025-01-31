@@ -4,7 +4,7 @@ from schemas.rag_schema import RAGResponse, RAGRequest
 from services.rag_service import RAGService
 
 
-service = RAGService.get_instance()
+service = RAGService()
 
 router = APIRouter(
     prefix="/rag",
