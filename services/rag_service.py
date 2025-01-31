@@ -1,31 +1,25 @@
-import json
-import urllib.parse
 import logging
 import os
 import threading
+from typing import List, Dict, Any
 
+from langchain import hub
 from langchain_openai import AzureOpenAIEmbeddings
-from langchain_core.prompts import ChatPromptTemplate
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_core.documents import Document
 
-from schemas.rag_schema import RAGResponse, Language
-from services import llm
 from utils.constants import RAG_CONFIG
+from schemas.rag_schema import Language, RAGResponse
+from services import llm
 
-
-# TODO: Burada eksik var, pipeline tam istenilen gibi çalışmıyor, benzer mesajlar geliyor üst üste, yes cevabını pek anlamıyor
 class RAGService:
     _instance = None
-    _lock = threading.Lock()  # To ensure thread safety
+    _lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
-        """Control the instantiation process."""
         if not cls._instance:
             with cls._lock:
                 if not cls._instance:
@@ -33,135 +27,143 @@ class RAGService:
         return cls._instance
 
     def __init__(self):
-        if not hasattr(self, "initialized"):  # Avoid reinitialization
+        if not hasattr(self, "initialized"):
             self.initialized = True
             self.video_store = []
-            self.lang = Language.ENGLISH
+            self.lang = Language.GERMAN
             self.config = RAG_CONFIG
-            self._setup_video_store()
-            self._setup_retriever()
-            self._setup_rag_chain(self.lang)
+            self._setup_components()
 
-    @classmethod
-    def get_instance(cls):
-        """Return the singleton instance of RAGService."""
-        if not cls._instance:
-            cls._instance = cls()
-        return cls._instance
-    
-    def _setup_video_store(self):
-        with open(os.path.join(self.config['db_path'], 'videos.json')) as file:
-            self.video_store = json.load(file)
+    def _setup_components(self):
+        """Initialize all components separately"""
+        logging.info("Setting up RAG components")
+        
+        # Load and split documents
+        self.loader = PyPDFDirectoryLoader(self.config['db_path'])
+        self.docs = self.loader.load()
+        logging.info(f"Loaded {len(self.docs)} documents")
 
-    def _setup_retriever(self):
-        logging.info("Setting up the retriever")
-
-        loader = PyPDFDirectoryLoader(self.config['db_path'])
-        docs = loader.load()
-
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        splits = text_splitter.split_documents(docs)
-
-        # Add video metadata as documents
-        video_documents = [
-            Document(
-                page_content=f"{video['title']} {video['description']} {' '.join(video['tags'])}",
-                metadata={
-                    "title": video["title"],
-                    "description": video["description"],
-                    "tags": video["tags"],
-                    "source": video["provider"],
-                    "url": video["url"],
-                    "category": video["category"]
-                }
-            )
-            for video in self.video_store
-        ]
-
-        all_documents = splits + video_documents
-
-        logging.info("Setting up the vector store")
-        vectorstore = InMemoryVectorStore.from_documents(
-            documents=all_documents, 
-            embedding=AzureOpenAIEmbeddings(
-                model=self.config['embedding_model'],
-                api_version=self.config['api_version']
-            )
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000, 
+            chunk_overlap=200
         )
+        self.splits = self.text_splitter.split_documents(self.docs)
+        logging.info(f"Created {len(self.splits)} splits")
 
-        # Retriever takes a question as an input, and returns the related Documents to that question
-        retriever = vectorstore.as_retriever(
-            **self.config['retriever_args']
+        # Setup embeddings and vector store
+        self.embeddings = AzureOpenAIEmbeddings(
+            model=self.config['embedding_model'],
+            api_version=self.config['api_version']
         )
+        
+        self.vectorstore = InMemoryVectorStore.from_documents(
+            documents=self.splits,
+            embedding=self.embeddings
+        )
+        logging.info("Vector store initialized")
 
-        contextualize_q_system_prompt = (
-            """
-            Given the user's question and related context, rewrite the question in a way 
-            that maximizes its clarity and semantic meaning. 
-            Ensure no ambiguity remains.
-            """
-        )
-        contextualize_q_prompt = ChatPromptTemplate.from_messages([
-            ("system", contextualize_q_system_prompt),
+        # Load prompt template
+        with open(os.path.join(self.config['prompt_path'], f'prompt_klaro_{self.lang.value}.txt'), 'r') as file:
+            self.system_prompt = file.read()
+        
+        self.qa_prompt = ChatPromptTemplate.from_messages([
+            ("system", self.system_prompt),
             MessagesPlaceholder("chat_history"),
             ("human", "{input}"),
         ])
+        
+        # Load question rephrase prompt
+        self.rephrase_prompt = hub.pull("langchain-ai/chat-langchain-rephrase")
+        logging.info("All components initialized")
 
-        self.history_aware_retriever = create_history_aware_retriever(
-            llm, retriever, contextualize_q_prompt
+    def rephrase_question(self, input: str, chat_history: List) -> str:
+        """Rephrase the question using chat history context"""
+        messages = self.rephrase_prompt.format(
+            input=input,
+            chat_history=chat_history
         )
-        logging.info("Retriever setup is complete")
+        rephrased = llm.invoke(messages).content
+        logging.info(f"Rephrased question: {rephrased}")
+        return rephrased
 
-    def _setup_rag_chain(self, lang):
-        logging.info("Setting up the RAG chain")
-        with open(os.path.join(self.config['prompt_path'], f'prompt_klaro_{lang.value}.txt'), 'r') as file:
-            system_prompt = file.read()
-                
-        qa_prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ])
-        question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-        self.rag_chain = create_retrieval_chain(self.history_aware_retriever, question_answer_chain)
-        logging.info("RAG setup is complete")
+    def retrieve_documents(self, question: str, **kwargs) -> List[Document]:
+        """Retrieve relevant documents for the question"""
+        k = kwargs.get('k', self.config['retriever_args'].get('search_kwargs', {}).get('k', 4))
+        docs = self.vectorstore.similarity_search_with_score(question, k=k)
+        logging.info(f"Retrieved {len(docs)} documents")
+        for i, (doc, score) in enumerate(docs):
+            logging.info(f"Doc {i} score: {score:.3f}")
+            logging.info(f"Doc {i} source: {doc.metadata.get('source')}")
+            logging.info(f"Doc {i} preview: {doc.page_content[:200]}...")
 
-    def _extract_context(self, response):
-        video_sources = [
-            {
-                "title": item.metadata.get("title"),
-                "description": item.metadata.get("description"),
-                "url": item.metadata.get("url"),
-            }
-            for item in response["context"]
-            if item.metadata.get("url")
-        ]
+        return [doc[0] for doc in docs]
 
-        unified_context = {
-            "videos": video_sources,
-            "original_context": response["context"],
-        }
+    def generate_answer(self, question: str, docs: List[Document], chat_history: List) -> str:
+        """Generate answer using retrieved documents"""
+        # Format prompt with documents and chat history
+        context = "\n\n".join([doc.page_content for doc in docs])
+        
+        messages = self.qa_prompt.format(
+            context=context,
+            chat_history=chat_history,
+            input=question
+        )
+        
+        # Generate response
+        response = llm.invoke(messages).content
+        logging.info(f"Generated response: {response}")
+        return response
 
-        return unified_context
-
-    def query(self, message, chat_history) -> RAGResponse:
-
-        state = {
-            "input": message,
-            "chat_history": chat_history,
-            "context": "",
-        }
-
-        response = self.rag_chain.invoke(state)  # Ensure async consistency
-
-        unified_context = self._extract_context(response)
-
+    def query(self, message: str, chat_history: List[Dict]) -> RAGResponse:
+        """Process a query through the complete RAG pipeline"""
+        logging.info(f"Processing query: {message}")
+        
+        # Step 1: Rephrase question using chat history
+        rephrased_question = self.rephrase_question(message, chat_history)
+        
+        # Step 2: Retrieve relevant documents
+        retrieved_docs = self.retrieve_documents(rephrased_question)
+        
+        # Step 3: Generate answer
+        answer = self.generate_answer(message, retrieved_docs, chat_history)
+        
+        # Extract sources from retrieved documents
+        sources = list({
+            doc.metadata['source'].replace("utils/db/", "").replace(".pdf", "")
+            for doc in retrieved_docs
+        })
+        
         return RAGResponse(
-            sources=list({item.metadata['source'].replace("utils/db/", "").replace(".pdf", "") for item in response["context"]}),
-            thumbnails=[
-                f"https://img.youtube.com/vi/{urllib.parse.parse_qs(urllib.parse.urlparse(video['url']).query).get('v', [None])[0]}/0.jpg"
-                for video in unified_context["videos"] if video['url']
-            ],
-            video_URLs=[video["url"] for video in unified_context["videos"]],
-            answer=response["answer"],
+            sources=sources,
+            thumbnails=[],
+            video_URLs=[],
+            answer=answer
         )
+
+    def debug_pipeline(self, message: str, chat_history: List[Dict]) -> Dict[str, Any]:
+        """Run the pipeline with full debug output"""
+        debug_info = {}
+        
+        # Step 1: Question rephrasing
+        debug_info['original_question'] = message
+        debug_info['rephrased_question'] = self.rephrase_question(message, chat_history)
+        
+        # Step 2: Document retrieval
+        retrieved_docs = self.retrieve_documents(debug_info['rephrased_question'])
+        debug_info['retrieved_docs'] = [
+            {
+                'content': doc.page_content,
+                'metadata': doc.metadata,
+                'preview': doc.page_content[:200]
+            }
+            for doc in retrieved_docs
+        ]
+        
+        # Step 3: Answer generation
+        debug_info['final_answer'] = self.generate_answer(
+            message,
+            retrieved_docs,
+            chat_history
+        )
+        
+        return debug_info
