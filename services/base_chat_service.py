@@ -1,26 +1,22 @@
 import logging
 
 from utils.constants import CHAT_HISTORY_LIMIT
-from services.agent_service import AgentService
+from services.rag_service import RAGService
 from models.chat import UserSession, ChatMessage
 
 
 class BaseChatService:
     def __init__(self):
         # this easily can be changed to RAGService as well
-        self.service = AgentService()
+        self.service = RAGService()
 
     async def process_chat_message(self, user: UserSession, object_id: str, message_body: str) -> str:
         # Get chat history
         chat_history = await ChatMessage.get_recent_messages(whatsapp_id=user.whatsapp_id, limit=CHAT_HISTORY_LIMIT)
         formatted_history = [{"role": msg.role, "content": msg.content} for msg in chat_history]
 
-        logging.info("Printing chat history")
-        for msg in formatted_history:
-            logging.info(msg)
-
         # Generate response
-        response = await self.service.query(message=message_body, chat_history=formatted_history)
+        response = self.service.query(message=message_body, chat_history=formatted_history)
         logging.info(f"Response of the RAG: {response.answer}")
 
         # Save user message with object_id
