@@ -192,17 +192,14 @@ class WhatsappService(BaseChatService):
         """
         Generate the payload for sending a welcoming WhatsApp text message.
         """
+        with open(os.path.join('utils/templates/welcoming_msg.txt'), 'r') as file:
+            text = file.read()
         return json.dumps(
             {
                 "messaging_product": "whatsapp",
                 "recipient_type": "individual",
                 "to": recipient,
-                "type": "template",
-                "template": {
-                    "name": "firstmessage_de",
-                    "language": {
-                        "code": "de"
-                        }
-                    }
+                "type": "text",
+                "text": {"preview_url": False, "body": text},
             }
         )
