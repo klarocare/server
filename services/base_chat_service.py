@@ -3,12 +3,16 @@ import logging
 from utils.constants import CHAT_HISTORY_LIMIT
 from services.rag_service import RAGService
 from models.chat import UserSession, ChatMessage
+from schemas.rag_schema import Language
 
 
 class BaseChatService:
     def __init__(self):
         # this easily can be changed to RAGService as well
         self.service = RAGService()
+
+    def update_service_language(self):
+        self.service.update_language(Language.ENGLISH) # TODO: Generalize this to other languages
 
     async def process_chat_message(self, user: UserSession, object_id: str, message_body: str) -> str:
         # Get chat history
