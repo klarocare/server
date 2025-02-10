@@ -8,7 +8,7 @@ from langchain_openai import AzureOpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_community.document_loaders import PyPDFDirectoryLoader, TextLoader
 from langchain_core.documents import Document
 
 from utils.constants import RAG_CONFIG
@@ -38,16 +38,29 @@ class RAGService:
         """Initialize all components separately"""
         logging.info("Setting up RAG components")
         
-        # Load and split documents
-        self.loader = PyPDFDirectoryLoader(self.config['db_path'])
-        self.docs = self.loader.load()
-        logging.info(f"Loaded {len(self.docs)} documents")
+        # Load the pdf files
+        pdf_loader = PyPDFDirectoryLoader(self.config['db_path'] + self.config['pdf_path'])
+        pdf_docs = pdf_loader.load()
 
+        # Load text files
+        all_text_docs = []
+
+        # Iterate through each file in the folder
+        for filename in os.listdir(self.config['db_path'] + self.config['text_path']):
+            file_path = os.path.join(self.config['db_path'] + self.config['text_path'], filename)
+            
+            # Ensure it's a text file before loading
+            if os.path.isfile(file_path) and filename.endswith(".txt"):
+                text_loader = TextLoader(file_path)
+                text_docs = text_loader.load()
+                all_text_docs.extend(text_docs) 
+        
+        docs = pdf_docs + all_text_docs
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000, 
             chunk_overlap=200
         )
-        self.splits = self.text_splitter.split_documents(self.docs)
+        self.splits = self.text_splitter.split_documents(docs)
         logging.info(f"Created {len(self.splits)} splits")
 
         # Setup embeddings and vector store
@@ -75,6 +88,19 @@ class RAGService:
         # Load question rephrase prompt
         self.rephrase_prompt = hub.pull("langchain-ai/chat-langchain-rephrase")
         logging.info("All components initialized")
+    
+    def update_language(self, lang: Language):
+        self.lang = lang
+
+        # Load prompt template
+        with open(os.path.join(self.config['prompt_path'], f'prompt_klaro_{self.lang.value}.txt'), 'r') as file:
+            self.system_prompt = file.read()
+        
+        self.qa_prompt = ChatPromptTemplate.from_messages([
+            ("system", self.system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ])
 
     def rephrase_question(self, input: str, chat_history: List) -> str:
         """Rephrase the question using chat history context"""

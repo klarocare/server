@@ -149,6 +149,11 @@ class WhatsappService(BaseChatService):
             return object_id, True
         return object_id, False
 
+    def _check_if_english_requested(self, body: str):
+        if "english" in body.lower():
+            return True
+        
+        return False
 
     async def _process_whatsapp_message(self, body):
         """
@@ -158,19 +163,24 @@ class WhatsappService(BaseChatService):
         object_id = body["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
 
         message_body = self._extract_whatsapp_message(body)
-        
         # Get user session
         user, is_new_user = await UserSession.get_or_create_session(wa_id)
 
-        # Prepare a welcoming template message if the user is new, else from RAG pipeline
-        if is_new_user:
-            data = self._get_welcoming_message_input(wa_id)
+        # If user requested to continue in english, then update the rag service
+        # TODO: Generalize this for other languages
+        if self._check_if_english_requested(message_body):
+            self.update_service_language()
+            data = self._get_english_welcoming_message_input(wa_id)
         else:
-            response = await self.process_chat_message(user, object_id, message_body)
-            formatted_answer = self._process_text_for_whatsapp(response.answer)
-            is_preview_url = True if response.video_URLs else False
-            # Format response for WhatsApp
-            data = self._get_text_message_input(wa_id, formatted_answer, is_preview_url)
+            # Prepare a welcoming template message if the user is new, else from RAG pipeline
+            if is_new_user:
+                data = self._get_default_welcoming_message_input(wa_id)
+            else:
+                response = await self.process_chat_message(user, object_id, message_body)
+                formatted_answer = self._process_text_for_whatsapp(response.answer)
+                is_preview_url = True if response.video_URLs else False
+                # Format response for WhatsApp
+                data = self._get_text_message_input(wa_id, formatted_answer, is_preview_url)
         
         self._send_message(data)
 
@@ -188,11 +198,27 @@ class WhatsappService(BaseChatService):
             }
         )
 
-    def _get_welcoming_message_input(self, recipient):
+    def _get_default_welcoming_message_input(self, recipient):
         """
         Generate the payload for sending a welcoming WhatsApp text message.
         """
-        with open(os.path.join('utils/templates/welcoming_msg.txt'), 'r') as file:
+        with open(os.path.join('utils/templates/welcoming_msg_de.txt'), 'r') as file:
+            text = file.read()
+        return json.dumps(
+            {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": recipient,
+                "type": "text",
+                "text": {"preview_url": False, "body": text},
+            }
+        )
+
+    def _get_english_welcoming_message_input(self, recipient):
+        """
+        Generate the payload for sending a welcoming WhatsApp text message.
+        """
+        with open(os.path.join('utils/templates/welcoming_msg_en.txt'), 'r') as file:
             text = file.read()
         return json.dumps(
             {
