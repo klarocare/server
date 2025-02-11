@@ -43,7 +43,7 @@ async def handle_webhook(background_tasks: BackgroundTasks, body_str: str = Depe
     try:
         body = json.loads(body_str)
         response_body, status_code = await service.handle_message(body, background_tasks)
-        return JSONResponse(content=json.loads(response_body), status_code=status_code)
+        return JSONResponse(content=response_body, status_code=status_code)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON provided")
 
