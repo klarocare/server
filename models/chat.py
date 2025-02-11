@@ -10,6 +10,7 @@ from schemas.rag_schema import Language
 class UserSession(MongoModel):
     whatsapp_id: str
     last_active: datetime = Field(default_factory=datetime.now)
+    is_active: bool = Field(default=True)
     language: Language = Field(default=Language.GERMAN) 
 
     @classmethod

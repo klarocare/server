@@ -57,12 +57,14 @@ class WhatsappService(BaseChatService):
         except Exception as e:
             logging.error(f"Error processing message in background: {str(e)}")
     
-    def end_user_session(self, user):
+    async def end_user_session(self, user: UserSession):
         """
         Ends the session of the user by sending a goodbye message
         """
         data = self._get_goodbye_message_input(user)
         self._send_message(data)
+        user.is_active = False
+        await user.save()
 
     def _send_read_message(self, body):
         """

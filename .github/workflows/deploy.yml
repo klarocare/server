@@ -45,7 +45,7 @@ jobs:
             targetPort: 8000
             ingress: external
             environmentVariables: |
-                MONGODB_CONNECTION_STRING=${{ secrets.MONGODB_CONNECTION_STRING }}
+                MONGODB_URI=${{ secrets.MONGODB_CONNECTION_STRING }}
                 WHATSAPP_VERIFY_TOKEN=${{ secrets.WHATSAPP_VERIFY_TOKEN }}
                 WHATSAPP_ID=${{ secrets.WHATSAPP_ID }}
                 WHATSAPP_VERSION=${{ secrets.WHATSAPP_VERSION }}
