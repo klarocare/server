@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
         check_sessions = create_session_checker(whatsapp_service)
         scheduler.add_job(
             check_sessions,
-            CronTrigger(minute='*/2'),
+            CronTrigger(minute='*/15'),
             id="check_user_sessions",
             replace_existing=True
         )

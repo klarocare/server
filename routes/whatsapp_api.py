@@ -58,7 +58,7 @@ def create_session_checker(whatsapp_service: WhatsappService):
         """
         try:
             current_time = datetime.now()
-            inactive_threshold = current_time - timedelta(minutes=5)
+            inactive_threshold = current_time - timedelta(minutes=15)
 
             # Find inactive sessions
             inactive_sessions = await UserSession.find(
