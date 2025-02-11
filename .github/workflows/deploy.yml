@@ -36,6 +36,18 @@ jobs:
           IMAGE_NAME=${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}
           docker buildx build --platform linux/amd64 -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest --push .
 
+      - name: Create Container Apps Environment
+        run: |
+          az containerapp env create \
+            --name ${{ secrets.AZURE_CONTAINER_APP_NAME }}-env \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --location westeurope
+
+      - name: Wait for environment provisioning
+        run: |
+          echo "Waiting for Container Apps Environment to be provisioned..."
+          sleep 120  # Wait for 2 minutes
+
       - name: Deploy to Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
         with:
