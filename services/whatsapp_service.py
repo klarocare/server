@@ -3,9 +3,11 @@ import json
 import requests
 import re
 import os
+from datetime import datetime
 
 from services.base_chat_service import BaseChatService
 from models.chat import UserSession, ChatMessage
+from schemas.rag_schema import Language
 
 
 class WhatsappService(BaseChatService):
@@ -16,7 +18,7 @@ class WhatsappService(BaseChatService):
         """
         Verify the webhook token and return the challenge string.
         """
-        if mode == "subscribe" and token == os.environ.get("VERIFY_TOKEN"):
+        if mode == "subscribe" and token == os.environ.get("WHATSAPP_VERIFY_TOKEN"):
             logging.info("WEBHOOK_VERIFIED")
             return challenge
         logging.info("VERIFICATION_FAILED")
@@ -54,6 +56,15 @@ class WhatsappService(BaseChatService):
             await self._process_whatsapp_message(body)
         except Exception as e:
             logging.error(f"Error processing message in background: {str(e)}")
+    
+    async def end_user_session(self, user: UserSession):
+        """
+        Ends the session of the user by sending a goodbye message
+        """
+        data = self._get_goodbye_message_input(user)
+        self._send_message(data)
+        user.is_active = False
+        await user.save()
 
     def _send_read_message(self, body):
         """
@@ -67,9 +78,9 @@ class WhatsappService(BaseChatService):
         }
         headers = {
             "Content-type": "application/json", 
-            "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
+            "Authorization": f"Bearer {os.environ.get('WHATSAPP_ACCESS_TOKEN')}",
         }
-        url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
+        url = f"https://graph.facebook.com/{os.environ.get('WHATSAPP_VERSION')}/{os.environ.get('WHATSAPP_PHONE_NUMBER_ID')}/messages"
         logging.info(f"Sending read request for message: {message_id}")
 
         response = requests.post(url, data=data, headers=headers, timeout=10)
@@ -106,9 +117,9 @@ class WhatsappService(BaseChatService):
         """
         headers = {
             "Content-type": "application/json", 
-            "Authorization": f"Bearer {os.environ.get('ACCESS_TOKEN')}",
+            "Authorization": f"Bearer {os.environ.get('WHATSAPP_ACCESS_TOKEN')}",
         }
-        url = f"https://graph.facebook.com/{os.environ.get('VERSION')}/{os.environ.get('PHONE_NUMBER_ID')}/messages"
+        url = f"https://graph.facebook.com/{os.environ.get('WHATSAPP_VERSION')}/{os.environ.get('WHATSAPP_PHONE_NUMBER_ID')}/messages"
         logging.info(f"Sending message with data : {data}")
 
         response = requests.post(url, data=data, headers=headers, timeout=10)
@@ -169,6 +180,9 @@ class WhatsappService(BaseChatService):
         # If user requested to continue in english, then update the rag service
         # TODO: Generalize this for other languages
         if self._check_if_english_requested(message_body):
+            user.language = Language.ENGLISH
+            await user.save()
+
             self.update_service_language()
             data = self._get_english_welcoming_message_input(wa_id)
         else:
@@ -176,6 +190,10 @@ class WhatsappService(BaseChatService):
             if is_new_user:
                 data = self._get_default_welcoming_message_input(wa_id)
             else:
+                # Update last active
+                user.last_active = datetime.now()
+                await user.save()
+
                 response = await self.process_chat_message(user, object_id, message_body)
                 formatted_answer = self._process_text_for_whatsapp(response.answer)
                 is_preview_url = True if response.video_URLs else False
@@ -225,6 +243,22 @@ class WhatsappService(BaseChatService):
                 "messaging_product": "whatsapp",
                 "recipient_type": "individual",
                 "to": recipient,
+                "type": "text",
+                "text": {"preview_url": False, "body": text},
+            }
+        )
+    
+    def _get_goodbye_message_input(self, user: UserSession):
+        """
+        Generate the payload for sending a welcoming WhatsApp text message.
+        """
+        with open(os.path.join(f'utils/templates/goodbye_msg_{user.language.value}.txt'), 'r') as file:
+            text = file.read()
+        return json.dumps(
+            {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": user.whatsapp_id,
                 "type": "text",
                 "text": {"preview_url": False, "body": text},
             }

@@ -1,9 +1,12 @@
 import json
+import logging
+from datetime import datetime, timedelta
 
 from fastapi import Query, APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from services.whatsapp_service import WhatsappService
+from models.chat import UserSession
 from utils.security import verify_signature
 
 router = APIRouter(
@@ -43,3 +46,41 @@ async def handle_webhook(background_tasks: BackgroundTasks, body_str: str = Depe
         return JSONResponse(content=json.loads(response_body), status_code=status_code)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON provided")
+
+
+def create_session_checker(whatsapp_service: WhatsappService):
+    """
+    Create a session checker function with the provided WhatsApp service
+    """
+    async def check_user_sessions():
+        """
+        Check user sessions and end inactive ones
+        """
+        try:
+            current_time = datetime.now()
+            inactive_threshold = current_time - timedelta(minutes=15)
+
+            # Find inactive sessions
+            inactive_sessions = await UserSession.find(
+                UserSession.last_active < inactive_threshold,
+                UserSession.is_active == True
+            ).to_list()
+
+            # Process and end inactive sessions
+            inactive_count = 0
+            for session in inactive_sessions:
+                try:
+                    # End the user session through WhatsApp
+                    await whatsapp_service.end_user_session(session)
+                    logging.info(f"Ended session for WhatsApp ID: {session.whatsapp_id}. "
+                              f"Last active: {session.last_active}")
+                    inactive_count += 1
+                except Exception as e:
+                    logging.error(f"Error ending session for WhatsApp ID {session.whatsapp_id}: {str(e)}")
+
+            logging.info(f"Processed {inactive_count} inactive sessions")
+
+        except Exception as e:
+            logging.error(f"Error checking user sessions: {str(e)}")
+
+    return check_user_sessions
