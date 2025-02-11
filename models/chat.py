@@ -5,10 +5,12 @@ from pydantic import Field
 from beanie import PydanticObjectId
 
 from models.base import MongoModel
+from schemas.rag_schema import Language
 
 class UserSession(MongoModel):
     whatsapp_id: str
     last_active: datetime = Field(default_factory=datetime.now)
+    language: Language = Field(default=Language.GERMAN) 
 
     @classmethod
     async def get_or_create_session(cls, whatsapp_id):

@@ -11,7 +11,7 @@ async def validate_signature(payload: str, signature: str) -> bool:
     Validate the incoming payload's signature against our expected signature
     """
     expected_signature = hmac.new(
-        bytes(os.environ.get("APP_SECRET"), "latin-1"),
+        bytes(os.environ.get("WHATSAPP_SECRET"), "latin-1"),
         msg=payload.encode("utf-8"),
         digestmod=hashlib.sha256
     ).hexdigest()
