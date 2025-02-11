@@ -37,19 +37,19 @@ jobs:
           docker buildx build --platform linux/amd64 -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest --push .
 
       - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v1
-        with:
-            containerAppName: ${{ secrets.AZURE_CONTAINER_APP_NAME }}
-            resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
-            imageToDeploy: ${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            targetPort: 8000
-            ingress: external
-            environmentVariables: |
-                MONGODB_URI=${{ secrets.MONGODB_CONNECTION_STRING }}
-                WHATSAPP_VERIFY_TOKEN=${{ secrets.WHATSAPP_VERIFY_TOKEN }}
-                WHATSAPP_ID=${{ secrets.WHATSAPP_ID }}
-                WHATSAPP_VERSION=${{ secrets.WHATSAPP_VERSION }}
-                WHATSAPP_PHONE_NUMBER_ID=${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
-                WHATSAPP_SECRET=${{ secrets.WHATSAPP_SECRET }}
-                AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}
+        run: |
+            az containerapp up \
+            -g ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            -n ${{ secrets.AZURE_CONTAINER_APP_NAME }} \
+            -i ${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --target-port 8000 \
+            --ingress external \
+            --env-vars \
+                MONGODB_URI=${{ secrets.MONGODB_CONNECTION_STRING }} \
+                WHATSAPP_VERIFY_TOKEN=${{ secrets.WHATSAPP_VERIFY_TOKEN }} \
+                WHATSAPP_ID=${{ secrets.WHATSAPP_ID }} \
+                WHATSAPP_VERSION=${{ secrets.WHATSAPP_VERSION }} \
+                WHATSAPP_PHONE_NUMBER_ID=${{ secrets.WHATSAPP_PHONE_NUMBER_ID }} \
+                WHATSAPP_SECRET=${{ secrets.WHATSAPP_SECRET }} \
+                AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }} \
                 AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
