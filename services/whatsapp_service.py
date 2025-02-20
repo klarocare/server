@@ -178,17 +178,20 @@ class WhatsappService(BaseChatService):
         user, is_new_user = await UserSession.get_or_create_session(wa_id)
 
         # If user requested to continue in english, then update the rag service
-        # TODO: Generalize this for other languages
+        # TODO: Generalize this for other languages, maybe not an enum
+        # Currently this is only triggered when user types "English"
+        # I believe it's ok for the whatsapp chat, maybe we can support a few others, but with the application
+        # we would have more power over this situation via UI.
         if self._check_if_english_requested(message_body):
-            user.language = Language.ENGLISH
+            user.language = Language.ENGLISH # TODO: Set this to the language user provided
             await user.save()
 
-            self.update_service_language()
-            data = self._get_english_welcoming_message_input(wa_id)
+            self.update_service_language(user.language)
+            data = self._get_welcoming_message_input(wa_id, user.language)
         else:
             # Prepare a welcoming template message if the user is new, else from RAG pipeline
             if is_new_user:
-                data = self._get_default_welcoming_message_input(wa_id)
+                data = self._get_welcoming_message_input(wa_id)
             else:
                 # Update last active
                 user.last_active = datetime.now()
@@ -216,27 +219,11 @@ class WhatsappService(BaseChatService):
             }
         )
 
-    def _get_default_welcoming_message_input(self, recipient):
+    def _get_welcoming_message_input(self, recipient, language = Language.GERMAN):
         """
         Generate the payload for sending a welcoming WhatsApp text message.
         """
-        with open(os.path.join('utils/templates/welcoming_msg_de.txt'), 'r') as file:
-            text = file.read()
-        return json.dumps(
-            {
-                "messaging_product": "whatsapp",
-                "recipient_type": "individual",
-                "to": recipient,
-                "type": "text",
-                "text": {"preview_url": False, "body": text},
-            }
-        )
-
-    def _get_english_welcoming_message_input(self, recipient):
-        """
-        Generate the payload for sending a welcoming WhatsApp text message.
-        """
-        with open(os.path.join('utils/templates/welcoming_msg_en.txt'), 'r') as file:
+        with open(os.path.join(F'utils/templates/welcoming_msg_{language.value}.txt'), 'r') as file:
             text = file.read()
         return json.dumps(
             {
