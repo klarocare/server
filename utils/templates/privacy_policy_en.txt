@@ -2,7 +2,7 @@
 At Klaro Care, we respect your privacy and are committed to protecting your personal data. Our WhatsApp chatbot operates in compliance with the General Data Protection Regulation (GDPR).
 
 *Data Collection & Processing*
-We do not process or analyze your personal data.
+We process your personal data according to GDPR.
 Any data stored is anonymized and cannot be linked to an individual.
 We do not share or sell any user data with third parties.
 *Data Storage*

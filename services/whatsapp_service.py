@@ -167,7 +167,6 @@ class WhatsappService(BaseChatService):
         return False
 
     def _check_privacy_policy_requested(self, body: str, user: UserSession):
-        print(body.lower())
         if "privacy policy" in body.lower() or "datenschutzrichtlinie" in body.lower():
             return True, self._get_message_input_from_file(user.whatsapp_id, "privacy_policy", user.language)
         return False, ""
@@ -184,7 +183,6 @@ class WhatsappService(BaseChatService):
         user, is_new_user = await UserSession.get_or_create_session(wa_id)
 
         is_privacy_policy_requested, privacy_policy = self._check_privacy_policy_requested(message_body, user)
-        print(is_privacy_policy_requested)
 
         if is_privacy_policy_requested:
             data = privacy_policy
