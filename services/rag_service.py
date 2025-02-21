@@ -87,7 +87,7 @@ class RAGService:
         with open(os.path.join(self.config['prompt_path'], f'prompt_klaro.txt'), 'r') as file:
             self.system_prompt = file.read()
 
-        self.system_prompt = self.system_prompt.replace("{preferred_language}", self.language.value)
+        self.system_prompt = self.system_prompt.replace("{preferred_language}", self.language.get_prompt_language())
         
         self.qa_prompt = ChatPromptTemplate.from_messages([
             ("system", self.system_prompt),
@@ -121,9 +121,6 @@ class RAGService:
             chat_history=chat_history,
             input=question
         )
-
-        logging.info("---------------------------------------")
-        logging.info(messages)
         
         # Generate response
         response = llm.invoke(messages).content
@@ -139,7 +136,7 @@ class RAGService:
         
         # Step 0: Setup the prompt for the language
         self.update_language(language)
-        
+
         # Step 1: Rephrase question using chat history
         rephrased_question = self._rephrase_question(message, chat_history)
         
