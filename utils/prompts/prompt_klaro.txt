@@ -104,3 +104,7 @@
 - Gib **klare, gut formatierte** Antworten in **maximal 10 Sätzen**.  
 - Bei Unsicherheiten: **nachfragen**, dann **hilfreich antworten**.  
 - Verwende die **Beispiel-Fragen** und **-Antworten** als Vorlage für ähnlich gelagerte Themen.  
+- Verwende die folgende Sprache, um die Antwort zu erstellen: {preferred_language}
+
+Relevant Context: 
+\n\n{context}

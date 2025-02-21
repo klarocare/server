@@ -61,7 +61,7 @@ class WhatsappService(BaseChatService):
         """
         Ends the session of the user by sending a goodbye message
         """
-        data = self._get_goodbye_message_input(user)
+        data = self._get_message_input_from_file(user.whatsapp_id, "goodbye_msg", user.language)
         self._send_message(data)
         user.is_active = False
         await user.save()
@@ -166,6 +166,11 @@ class WhatsappService(BaseChatService):
         
         return False
 
+    def _check_privacy_policy_requested(self, body: str, user: UserSession):
+        if "privacy policy" in body.lower() or "datenschutzrichtlinie" in body.lower():
+            return True, self._get_message_input_from_file(user.whatsapp_id, "privacy_policy", user.language)
+        return False, ""
+
     async def _process_whatsapp_message(self, body):
         """
         Process a valid WhatsApp message and generate a response using RAG.
@@ -177,18 +182,20 @@ class WhatsappService(BaseChatService):
         # Get user session
         user, is_new_user = await UserSession.get_or_create_session(wa_id)
 
-        # If user requested to continue in english, then update the rag service
-        # TODO: Generalize this for other languages
-        if self._check_if_english_requested(message_body):
-            user.language = Language.ENGLISH
+        is_privacy_policy_requested, privacy_policy = self._check_privacy_policy_requested(message_body, user)
+
+        if is_privacy_policy_requested:
+            data = privacy_policy
+        elif self._check_if_english_requested(message_body): # TODO: Generalize this for other languages, maybe not an enum
+            user.language = Language.ENGLISH # TODO: Set this to the language user provided
             await user.save()
 
-            self.update_service_language()
-            data = self._get_english_welcoming_message_input(wa_id)
+            self.update_service_language(user.language)
+            data = self._get_message_input_from_file(wa_id, "welcoming_msg", user.language)
         else:
             # Prepare a welcoming template message if the user is new, else from RAG pipeline
             if is_new_user:
-                data = self._get_default_welcoming_message_input(wa_id)
+                data = self._get_message_input_from_file(wa_id, "welcoming_msg", user.language)
             else:
                 # Update last active
                 user.last_active = datetime.now()
@@ -198,11 +205,11 @@ class WhatsappService(BaseChatService):
                 formatted_answer = self._process_text_for_whatsapp(response.answer)
                 is_preview_url = True if response.video_URLs else False
                 # Format response for WhatsApp
-                data = self._get_text_message_input(wa_id, formatted_answer, is_preview_url)
+                data = self._get_message_input(wa_id, formatted_answer, is_preview_url)
         
         self._send_message(data)
 
-    def _get_text_message_input(self, recipient, text, is_preview_url):
+    def _get_message_input(self, recipient, text, is_preview_url = False):
         """
         Generate the payload for sending a WhatsApp text message.
         """
@@ -214,51 +221,19 @@ class WhatsappService(BaseChatService):
                 "type": "text",
                 "text": {"preview_url": is_preview_url, "body": text},
             }
-        )
-
-    def _get_default_welcoming_message_input(self, recipient):
-        """
-        Generate the payload for sending a welcoming WhatsApp text message.
-        """
-        with open(os.path.join('utils/templates/welcoming_msg_de.txt'), 'r') as file:
-            text = file.read()
-        return json.dumps(
-            {
-                "messaging_product": "whatsapp",
-                "recipient_type": "individual",
-                "to": recipient,
-                "type": "text",
-                "text": {"preview_url": False, "body": text},
-            }
-        )
-
-    def _get_english_welcoming_message_input(self, recipient):
-        """
-        Generate the payload for sending a welcoming WhatsApp text message.
-        """
-        with open(os.path.join('utils/templates/welcoming_msg_en.txt'), 'r') as file:
-            text = file.read()
-        return json.dumps(
-            {
-                "messaging_product": "whatsapp",
-                "recipient_type": "individual",
-                "to": recipient,
-                "type": "text",
-                "text": {"preview_url": False, "body": text},
-            }
-        )
+        )    
     
-    def _get_goodbye_message_input(self, user: UserSession):
+    def _get_message_input_from_file(self, recipient, file_name, language = Language.GERMAN):
         """
         Generate the payload for sending a welcoming WhatsApp text message.
         """
-        with open(os.path.join(f'utils/templates/goodbye_msg_{user.language.value}.txt'), 'r') as file:
+        with open(os.path.join(F'utils/templates/{file_name}_{language.value}.txt'), 'r') as file:
             text = file.read()
         return json.dumps(
             {
                 "messaging_product": "whatsapp",
                 "recipient_type": "individual",
-                "to": user.whatsapp_id,
+                "to": recipient,
                 "type": "text",
                 "text": {"preview_url": False, "body": text},
             }

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from schemas.rag_schema import RAGResponse, RAGRequest
+from schemas.rag_schema import Language, RAGResponse, RAGRequest
 from services.rag_service import RAGService
 
 
@@ -15,5 +15,5 @@ router = APIRouter(
 @router.post("/query", response_model=RAGResponse)
 async def query(request: RAGRequest):
     # Add input to the history
-    response = service.query(message=request.message, chat_history=request.chat_history)
+    response = service.query(message=request.message, chat_history=request.chat_history, language=Language.GERMAN)
     return response

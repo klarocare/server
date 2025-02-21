@@ -9,6 +9,15 @@ class Language(Enum):
     ENGLISH = "en"
     GERMAN = "de"
 
+    def get_prompt_language(self):
+        match self:
+            case Language.ENGLISH:
+                return "English"
+            case Language.GERMAN:
+                return "Deutsch"
+            case _:
+                return "Deutsch"
+
 
 class RAGMessage(BaseModel):
     role: str

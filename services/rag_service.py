@@ -1,7 +1,7 @@
 import logging
 import os
 import threading
-from typing import List, Dict, Any
+from typing import List, Dict
 
 from langchain import hub
 from langchain_openai import AzureOpenAIEmbeddings
@@ -30,7 +30,7 @@ class RAGService:
         if not hasattr(self, "initialized"):
             self.initialized = True
             self.video_store = []
-            self.lang = Language.GERMAN
+            self.language = Language.GERMAN
             self.config = RAG_CONFIG
             self._setup_components()
 
@@ -75,34 +75,27 @@ class RAGService:
         )
         logging.info("Vector store initialized")
 
-        # Load prompt template
-        with open(os.path.join(self.config['prompt_path'], f'prompt_klaro_{self.lang.value}.txt'), 'r') as file:
-            self.system_prompt = file.read()
-        
-        self.qa_prompt = ChatPromptTemplate.from_messages([
-            ("system", self.system_prompt),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-        ])
+        # Setup the QA prompt
+        self._setup_prompt()
         
         # Load question rephrase prompt
         self.rephrase_prompt = hub.pull("langchain-ai/chat-langchain-rephrase")
         logging.info("All components initialized")
     
-    def update_language(self, lang: Language):
-        self.lang = lang
-
+    def _setup_prompt(self):
         # Load prompt template
-        with open(os.path.join(self.config['prompt_path'], f'prompt_klaro_{self.lang.value}.txt'), 'r') as file:
+        with open(os.path.join(self.config['prompt_path'], f'prompt_klaro.txt'), 'r') as file:
             self.system_prompt = file.read()
+
+        self.system_prompt = self.system_prompt.replace("{preferred_language}", self.language.get_prompt_language())
         
         self.qa_prompt = ChatPromptTemplate.from_messages([
             ("system", self.system_prompt),
             MessagesPlaceholder("chat_history"),
             ("human", "{input}"),
         ])
-
-    def rephrase_question(self, input: str, chat_history: List) -> str:
+    
+    def _rephrase_question(self, input: str, chat_history: List) -> str:
         """Rephrase the question using chat history context"""
         messages = self.rephrase_prompt.format(
             input=input,
@@ -112,19 +105,13 @@ class RAGService:
         logging.info(f"Rephrased question: {rephrased}")
         return rephrased
 
-    def retrieve_documents(self, question: str, **kwargs) -> List[Document]:
+    def _retrieve_documents(self, question: str, **kwargs) -> List[Document]:
         """Retrieve relevant documents for the question"""
         k = kwargs.get('k', self.config['retriever_args'].get('search_kwargs', {}).get('k', 4))
         docs = self.vectorstore.similarity_search_with_score(question, k=k)
-        logging.info(f"Retrieved {len(docs)} documents")
-        for i, (doc, score) in enumerate(docs):
-            logging.info(f"Doc {i} score: {score:.3f}")
-            logging.info(f"Doc {i} source: {doc.metadata.get('source')}")
-            logging.info(f"Doc {i} preview: {doc.page_content[:200]}...")
-
         return [doc[0] for doc in docs]
 
-    def generate_answer(self, question: str, docs: List[Document], chat_history: List) -> str:
+    def _generate_answer(self, question: str, docs: List[Document], chat_history: List) -> str:
         """Generate answer using retrieved documents"""
         # Format prompt with documents and chat history
         context = "\n\n".join([doc.page_content for doc in docs])
@@ -137,21 +124,27 @@ class RAGService:
         
         # Generate response
         response = llm.invoke(messages).content
-        logging.info(f"Generated response: {response}")
         return response
 
-    def query(self, message: str, chat_history: List[Dict]) -> RAGResponse:
+    def update_language(self, language: Language):
+        self.language = language
+        self._setup_prompt()
+
+    def query(self, message: str, chat_history: List[Dict], language: Language) -> RAGResponse:
         """Process a query through the complete RAG pipeline"""
         logging.info(f"Processing query: {message}")
         
+        # Step 0: Setup the prompt for the language
+        self.update_language(language)
+
         # Step 1: Rephrase question using chat history
-        rephrased_question = self.rephrase_question(message, chat_history)
+        rephrased_question = self._rephrase_question(message, chat_history)
         
         # Step 2: Retrieve relevant documents
-        retrieved_docs = self.retrieve_documents(rephrased_question)
+        retrieved_docs = self._retrieve_documents(rephrased_question)
         
         # Step 3: Generate answer
-        answer = self.generate_answer(message, retrieved_docs, chat_history)
+        answer = self._generate_answer(message, retrieved_docs, chat_history)
         
         # Extract sources from retrieved documents
         sources = list({
@@ -165,31 +158,3 @@ class RAGService:
             video_URLs=[],
             answer=answer
         )
-
-    def debug_pipeline(self, message: str, chat_history: List[Dict]) -> Dict[str, Any]:
-        """Run the pipeline with full debug output"""
-        debug_info = {}
-        
-        # Step 1: Question rephrasing
-        debug_info['original_question'] = message
-        debug_info['rephrased_question'] = self.rephrase_question(message, chat_history)
-        
-        # Step 2: Document retrieval
-        retrieved_docs = self.retrieve_documents(debug_info['rephrased_question'])
-        debug_info['retrieved_docs'] = [
-            {
-                'content': doc.page_content,
-                'metadata': doc.metadata,
-                'preview': doc.page_content[:200]
-            }
-            for doc in retrieved_docs
-        ]
-        
-        # Step 3: Answer generation
-        debug_info['final_answer'] = self.generate_answer(
-            message,
-            retrieved_docs,
-            chat_history
-        )
-        
-        return debug_info
