@@ -10,6 +10,8 @@ from models.chat import UserSession, ChatMessage
 from schemas.rag_schema import Language
 
 
+# TODO: Fix the language persistency
+
 class WhatsappService(BaseChatService):
     def __init__(self):
         super().__init__()
@@ -184,7 +186,11 @@ class WhatsappService(BaseChatService):
 
         is_privacy_policy_requested, privacy_policy = self._check_privacy_policy_requested(message_body, user)
 
-        if is_privacy_policy_requested:
+        if not user.is_active:
+            user.is_active = True
+            await user.save()
+            data = self._get_message_input_from_file(wa_id, "welcome_back_msg", user.language)
+        elif is_privacy_policy_requested:
             data = privacy_policy
         elif self._check_if_english_requested(message_body): # TODO: Generalize this for other languages, maybe not an enum
             user.language = Language.ENGLISH # TODO: Set this to the language user provided
