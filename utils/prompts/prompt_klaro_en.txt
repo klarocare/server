@@ -62,8 +62,6 @@
 
 ## 4. Example Questions & Answers
 
-*(No JSON here; just an example question followed by an example answer. Conclude with possible follow-up prompts or options.)*
-
 1. **Question:** *What does a care level mean for me?*  
    **Answer:** “A care level describes the degree of a person’s need for assistance and determines financial and material support services.”  
    **Follow-up Prompt:** *Would you like to find out how to calculate your own care level?*
