@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import Query, APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from services.whatsapp_service import WhatsappService
+from services.whatsapp.service import WhatsappService
 from models.chat import UserSession
 from utils.security import verify_signature
 
