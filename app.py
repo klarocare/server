@@ -11,7 +11,7 @@ from models.whatsapp import WhatsappChatMessage, WhatsappUser
 from models.user import User 
 from models.chat import ChatMessage 
 from core.database import Database
-from routes import care_task_api, rag_api, whatsapp_api, auth_api
+from routes import care_task_api, chat_api, whatsapp_api, auth_api
 from routes.whatsapp_api import create_session_checker, service as whatsapp_service
 
 
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(root_path="/api", lifespan=lifespan)
 
-app.include_router(rag_api.router)
+app.include_router(chat_api.router)
 app.include_router(care_task_api.router)
 app.include_router(whatsapp_api.router)
 app.include_router(auth_api.router)

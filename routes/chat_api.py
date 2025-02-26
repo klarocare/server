@@ -1,21 +1,21 @@
 from fastapi import APIRouter, Depends
 
 from core.auth import AuthHandler
-from schemas.rag_schema import Language, RAGResponse, RAGRequest
-from services.rag_service import RAGService
+from schemas.rag_schema import RAGResponse, RAGRequest
+from services.chat_service import ChatService
 from models.user import UserCredentials
 
 
-service = RAGService()
+service = ChatService()
 
 router = APIRouter(
-    prefix="/rag",
-    tags=["rag"],
+    prefix="/chat",
+    tags=["chat"],
     responses={404: {"description": "Not found"}},
 )
 
 @router.post("/query", response_model=RAGResponse)
 async def query(request: RAGRequest, current_user: UserCredentials = Depends(AuthHandler.get_current_user)):
     # Add input to the history
-    response = service.query(message=request.message, chat_history=request.chat_history, language=Language.GERMAN)
+    response = service.query(user=current_user, message=request.message)
     return response
