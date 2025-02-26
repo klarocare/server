@@ -1,11 +1,9 @@
-from typing import List
 from pydantic import EmailStr
 
 from models.base import MongoModel
-from schemas.care_task_schema import Caregiver, CareTask
 
 
-class User(MongoModel, Caregiver):
+class UserCredentials(MongoModel):
     """
     User model that extends Caregiver with authentication fields
     """
@@ -16,3 +14,8 @@ class User(MongoModel, Caregiver):
     @classmethod
     async def get_by_email(cls, email: str):
         return await cls.find_one(cls.email == email)
+
+
+class User(UserCredentials):
+    username: str
+    caretaker_name: str

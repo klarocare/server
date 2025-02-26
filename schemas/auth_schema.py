@@ -1,18 +1,13 @@
-from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 
-from schemas.care_task_schema import Caregiver, CareTask
-
+from models.user import UserCredentials
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6)
 
 
-class RegisterRequest(LoginRequest, Caregiver):
-    """
-    Combines login credentials with caregiver information for registration
-    """
+class RegisterRequest(LoginRequest):
     password_confirm: str = Field(..., min_length=6)
 
     # Add validation
@@ -24,7 +19,6 @@ class RegisterRequest(LoginRequest, Caregiver):
 class TokenSchema(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    user: Caregiver
 
 
 class TokenPayload(BaseModel):
@@ -32,7 +26,7 @@ class TokenPayload(BaseModel):
     exp: float  # expiration time
 
 
-class UserResponse(Caregiver):
+class UserResponse(BaseModel):
     """
     Public user information returned by the API
     """

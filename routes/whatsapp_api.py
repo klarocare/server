@@ -6,7 +6,7 @@ from fastapi import Query, APIRouter, HTTPException, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from services.whatsapp.service import WhatsappService
-from models.chat import UserSession
+from models.whatsapp import WhatsappUser
 from utils.security import verify_signature
 
 router = APIRouter(
@@ -61,9 +61,9 @@ def create_session_checker(whatsapp_service: WhatsappService):
             inactive_threshold = current_time - timedelta(minutes=15)
 
             # Find inactive sessions
-            inactive_sessions = await UserSession.find(
-                UserSession.last_active < inactive_threshold,
-                UserSession.is_active == True
+            inactive_sessions = await WhatsappUser.find(
+                WhatsappUser.last_active < inactive_threshold,
+                WhatsappUser.is_active == True
             ).to_list()
 
             # Process and end inactive sessions
