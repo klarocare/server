@@ -8,8 +8,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from models.chat import ChatMessage, UserSession
+from models.user import User
 from core.database import Database
-from routes import care_task_api, rag_api, whatsapp_api
+from routes import care_task_api, rag_api, whatsapp_api, auth_api
 from routes.whatsapp_api import create_session_checker, service as whatsapp_service
 
 
@@ -29,7 +30,7 @@ load_dotenv(override=True)
 async def lifespan(app: FastAPI):
     # Initialize database connection
     await Database.initialize()
-    await init_beanie(database=Database._instance.db_name, document_models=[ChatMessage, UserSession])
+    await init_beanie(database=Database._instance.db_name, document_models=[ChatMessage, UserSession, User])
 
     # Initialize the clean-up scheduler
     try:
@@ -58,6 +59,7 @@ app = FastAPI(root_path="/api", lifespan=lifespan)
 app.include_router(rag_api.router)
 app.include_router(care_task_api.router)
 app.include_router(whatsapp_api.router)
+app.include_router(auth_api.router)
 
 @app.get("/health-check")
 async def root():
