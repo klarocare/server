@@ -29,7 +29,7 @@ class TokenSchema(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: str  # user id
-    exp: int  # expiration time
+    exp: float  # expiration time
 
 
 class UserResponse(Caregiver):
