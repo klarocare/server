@@ -1,6 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
 
-from models.user import UserCredentials
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -24,10 +23,3 @@ class TokenSchema(BaseModel):
 class TokenPayload(BaseModel):
     sub: str  # user id
     exp: float  # expiration time
-
-
-class UserResponse(BaseModel):
-    """
-    Public user information returned by the API
-    """
-    email: EmailStr 

@@ -6,8 +6,7 @@ from services.auth_service import AuthService
 from schemas.auth_schema import (
     LoginRequest,
     RegisterRequest,
-    TokenSchema,
-    UserResponse
+    TokenSchema
 )
 from models.user import UserCredentials
 
@@ -43,8 +42,3 @@ async def logout(current_user: UserCredentials = Depends(AuthHandler.get_current
     Note: In a production environment, you might want to blacklist the token
     """
     return {"detail": "Successfully logged out"}
-
-@router.get("/profile", response_model=UserResponse)
-async def get_profile(current_user: UserCredentials = Depends(AuthHandler.get_current_user)):
-    """Get current user profile"""
-    return current_user 

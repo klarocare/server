@@ -17,5 +17,5 @@ router = APIRouter(
 @router.post("/query", response_model=RAGResponse)
 async def query(request: RAGRequest, current_user: UserCredentials = Depends(AuthHandler.get_current_user)):
     # Add input to the history
-    response = service.query(user=current_user, message=request.message)
+    response = await service.query(user_credentials=current_user, message=request.message)
     return response
