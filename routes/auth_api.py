@@ -48,9 +48,3 @@ async def logout(current_user: UserCredentials = Depends(AuthHandler.get_current
 async def get_profile(current_user: UserCredentials = Depends(AuthHandler.get_current_user)):
     """Get current user profile"""
     return current_user 
-
-@router.get("/debug/users", tags=["debug"]) # TODO: Remove this endpoint. Or add admin access to it
-async def get_all_users():
-    """Debug endpoint to see all users in the database"""
-    users = await UserCredentials.find_all().to_list()
-    return users 
