@@ -37,7 +37,8 @@ class AuthService:
         await user.insert()
         
         return TokenSchema(
-            access_token=AuthHandler.create_access_token(str(user.id))
+            access_token=AuthHandler.create_access_token(str(user.id)),
+            refresh_token=AuthHandler.create_refresh_token(str(user.id))
         )
 
     async def login(self, data: LoginRequest) -> TokenSchema:
@@ -49,5 +50,6 @@ class AuthService:
             )
             
         return TokenSchema(
-            access_token=AuthHandler.create_access_token(str(user.id))
+            access_token=AuthHandler.create_access_token(str(user.id)),
+            refresh_token=AuthHandler.create_refresh_token(str(user.id))
         ) 

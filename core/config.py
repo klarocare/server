@@ -6,8 +6,10 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # JWT Settings
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
+    JWT_REFRESH_SECRET_KEY: str = os.getenv("JWT_REFRESH_SECRET_KEY")
     ALGORITHM: str = os.getenv("ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Database Settings
     MONGODB_URI: str = os.getenv("MONGODB_URI")

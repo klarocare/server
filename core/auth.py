@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -6,7 +6,7 @@ from jose import JWTError, jwt
 
 from models.user import UserCredentials
 from core.config import settings
-from schemas.auth_schema import TokenPayload
+from schemas.auth_schema import TokenPayload, TokenType
 
 
 class AuthHandler:
@@ -39,12 +39,42 @@ class AuthHandler:
 
     @staticmethod
     def create_access_token(user_id: str) -> str:
-        expires_delta = datetime.now(timezone.utc) + timedelta(
+        expires_delta = datetime.now(UTC) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
-        to_encode = {"sub": str(user_id), "exp": expires_delta.timestamp()}
+        to_encode = {"sub": str(user_id), "exp": expires_delta.timestamp(), "token_type": TokenType.ACCESS}
         return jwt.encode(
             to_encode, 
             settings.JWT_SECRET_KEY, 
             algorithm=settings.ALGORITHM
         )
+
+    @staticmethod
+    def create_refresh_token(user_id: str) -> str:
+        expires_delta = datetime.now(UTC) + timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRE_DAYS
+        )
+        to_encode = {"sub": str(user_id), "exp": expires_delta.timestamp(), "token_type": TokenType.REFRESH}
+        return jwt.encode(
+            to_encode, 
+            settings.JWT_REFRESH_SECRET_KEY, 
+            algorithm=settings.ALGORITHM
+        ) 
+    
+    @staticmethod
+    def verify_token(token: str, expected_token_type: TokenType) -> str | None:
+        """Verify a JWT token."""
+        try:
+            secret_key = settings.JWT_SECRET_KEY if expected_token_type is TokenType.ACCESS else settings.JWT_REFRESH_SECRET_KEY
+
+            payload = jwt.decode(token, secret_key, algorithm=settings.ALGORITHM)
+            user_id: str = payload.get("sub")
+            token_type: str = payload.get("token_type")
+            
+            if user_id is None or token_type != expected_token_type:
+                return None
+                
+            return user_id
+
+        except JWTError:
+            return None
