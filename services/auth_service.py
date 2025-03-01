@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from passlib.context import CryptContext
 
-from models.user import UserCredentials
+from models.user import UserCredentials, UserProfile
 from schemas.auth_schema import RegisterRequest, LoginRequest, TokenSchema
 from core.auth import AuthHandler
 
@@ -30,14 +30,21 @@ class AuthService:
                 detail="Email already registered"
             )
             
-        user = UserCredentials(
+        credentials = UserCredentials(
             email=data.email,
             hashed_password=self.get_password_hash(data.password),
         )
-        await user.insert()
+        await credentials.insert()
+
+        user_profile = UserProfile(
+            credentials_id=credentials.id,
+            username=data.name,
+            language=data.language
+            )
+        await user_profile.insert()
         
         return TokenSchema(
-            access_token=AuthHandler.create_access_token(str(user.id))
+            access_token=AuthHandler.create_access_token(str(credentials.id))
         )
 
     async def login(self, data: LoginRequest) -> TokenSchema:

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from schemas.rag_schema import Language
 
 
 class LoginRequest(BaseModel):
@@ -8,6 +9,8 @@ class LoginRequest(BaseModel):
 
 class RegisterRequest(LoginRequest):
     password_confirm: str = Field(..., min_length=6)
+    name: str
+    language: Language
 
     # Add validation
     def model_post_init(self, __context) -> None:

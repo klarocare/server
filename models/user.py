@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 from pydantic import EmailStr, Field
 from beanie import PydanticObjectId
@@ -30,7 +31,7 @@ class UserCredentials(MongoModel):
 class UserProfile(MongoModel):
     credentials_id: PydanticObjectId
     username: str
-    caretaker_name: str
+    caretaker_name: Optional[str] = None
     language: Language = Field(default=Language.GERMAN)
 
     async def get_recent_messages(self, limit: int = 20):
