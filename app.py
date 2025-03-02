@@ -8,7 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from models.whatsapp import WhatsappChatMessage, WhatsappUser
-from models.user import UserProfile, UserCredentials, ChatMessage
+from models.user import User, ChatMessage
 from core.database import Database
 from routes import care_task_api, chat_api, whatsapp_api, auth_api, profile_api
 from routes.whatsapp_api import create_session_checker, service as whatsapp_service
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     await Database.initialize()
     await init_beanie(
         database=Database._instance.db_name,
-        document_models=[WhatsappChatMessage, WhatsappUser, UserProfile, ChatMessage, UserCredentials]
+        document_models=[WhatsappChatMessage, WhatsappUser, User, ChatMessage]
         )
 
     # Initialize the clean-up scheduler
