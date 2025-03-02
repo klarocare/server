@@ -4,19 +4,21 @@ import os
 from datetime import datetime
 from typing import Dict, Any, Tuple
 
-from services.base_chat_service import BaseChatService
 from services.whatsapp.message_handler import WhatsAppMessageHandler
 from services.whatsapp.message_formatter import WhatsAppMessageFormatter
 from services.whatsapp.api_client import WhatsAppAPIClient
-from models.chat import UserSession, ChatMessage
+from models.whatsapp import WhatsappUser, WhatsappChatMessage
 from schemas.rag_schema import Language
+from utils.constants import CHAT_HISTORY_LIMIT
+from services.rag_service import RAGService
+from models.whatsapp import WhatsappUser, WhatsappChatMessage
 
 
-class WhatsappService(BaseChatService):
+class WhatsappService:
     """Main WhatsApp service class"""
     
     def __init__(self):
-        super().__init__()
+        self.service = RAGService()
         self.api_client = WhatsAppAPIClient()
         self.message_handler = WhatsAppMessageHandler()
         self.message_formatter = WhatsAppMessageFormatter()
@@ -63,12 +65,12 @@ class WhatsappService(BaseChatService):
 
     async def _handle_user_interaction(self, wa_id: str, object_id: str, message_body: str) -> None:
         """Handle user interaction and generate appropriate response."""
-        user, is_new_user = await UserSession.get_or_create_session(wa_id)
+        user, is_new_user = await WhatsappUser.get_or_create_session(wa_id)
         
         response_data = await self._determine_response(user, is_new_user, message_body, object_id)
         self.api_client.send_message(response_data)
 
-    async def _determine_response(self, user: UserSession, is_new_user: bool, message_body: str, object_id: str) -> str:
+    async def _determine_response(self, user: WhatsappUser, is_new_user: bool, message_body: str, object_id: str) -> str:
         """Determine appropriate response based on user state and message content."""
         if not user.is_active:
             user.is_active = True
@@ -81,7 +83,7 @@ class WhatsappService(BaseChatService):
         if "english" in message_body.lower():
             user.language = Language.ENGLISH
             await user.save()
-            self.update_service_language(user.language)
+            self._update_service_language(user.language)
             return self.message_formatter.get_template_message(user.whatsapp_id, "welcoming_msg", user.language)
             
         if is_new_user:
@@ -91,7 +93,7 @@ class WhatsappService(BaseChatService):
         user.last_active = datetime.now()
         await user.save()
         
-        response = await self.process_chat_message(user, object_id, message_body)
+        response = await self._process_chat_message(user, object_id, message_body)
         formatted_answer = self.message_formatter.process_text_for_whatsapp(response.answer)
         return self.message_formatter.create_message_payload(
             user.whatsapp_id,
@@ -101,11 +103,44 @@ class WhatsappService(BaseChatService):
 
     async def _is_duplicate_message(self, object_id: str) -> bool:
         """Check if message has already been processed."""
-        msg = await ChatMessage.get_message_by_object_id(object_id)
-        response_msg = await ChatMessage.get_message_by_object_id(f"response_{object_id}")
+        msg = await WhatsappChatMessage.get_message_by_object_id(object_id)
+        response_msg = await WhatsappChatMessage.get_message_by_object_id(f"response_{object_id}")
         return bool(msg or response_msg)
+    
+    def _update_service_language(self, language):
+        self.service.update_language(language)
 
-    async def end_user_session(self, user: UserSession) -> None:
+    async def _process_chat_message(self, user: WhatsappUser, object_id: str, message_body: str) -> str:
+        # Get chat history
+        chat_history = await WhatsappChatMessage.get_recent_messages(whatsapp_id=user.whatsapp_id, limit=CHAT_HISTORY_LIMIT)
+        formatted_history = [{"role": msg.role, "content": msg.content} for msg in chat_history]
+
+        # Generate response
+        response = self.service.query(message=message_body, chat_history=formatted_history, language=user.language)
+
+        # Save user message with object_id
+        msg = WhatsappChatMessage(
+            session_id=user.id,
+            whatsapp_id=user.whatsapp_id,
+            role="user",
+            object_id=object_id,
+            content=message_body,
+        )
+        await msg.insert()
+
+        # Save assistant message with reference to original message
+        response_msg = WhatsappChatMessage(
+            session_id=user.id,
+            whatsapp_id=user.whatsapp_id,
+            role="assistant",
+            object_id=f"response_{object_id}",  # Link response to original message
+            content=response.answer,
+        )
+        await response_msg.insert()
+
+        return response
+
+    async def end_user_session(self, user: WhatsappUser) -> None:
         """End user session."""
         data = self.message_formatter.get_template_message(
             user.whatsapp_id,

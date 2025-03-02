@@ -26,7 +26,6 @@ class RAGMessage(BaseModel):
 
 class RAGRequest(BaseModel):
     message: str
-    chat_history: List[RAGMessage]
 
 
 class RAGResponse(BaseModel):

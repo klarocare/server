@@ -1,0 +1,34 @@
+from services.rag_service import RAGService
+from models.user import UserCredentials, UserProfile
+from models.chat import ChatMessage
+
+
+class ChatService:
+    
+    def __init__(self):
+        self.service = RAGService()
+    
+    async def query(self, user_credentials: UserCredentials, message: str):
+        user: UserProfile = await user_credentials.get_user()
+        chat_history = await user.get_recent_messages()
+        formatted_history = [{"role": msg.role, "content": msg.content} for msg in chat_history]
+
+        response = self.service.query(message=message, chat_history=formatted_history, language=user.language)
+        
+        # Save user message
+        msg = ChatMessage(
+            user_id=user.id,
+            role="user",
+            content=message,
+        )
+        await msg.insert()
+
+        # Save assistant message
+        response_msg = ChatMessage(
+            user_id=user.id,
+            role="assistant",
+            content=response.answer,
+        )
+        await response_msg.insert()
+
+        return response
