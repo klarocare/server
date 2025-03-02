@@ -2,7 +2,7 @@ from enum import Enum
 
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Language(Enum):
@@ -28,8 +28,6 @@ class RAGRequest(BaseModel):
     message: str
 
 
-class RAGResponse(BaseModel):
-    answer: str
-    sources: List[str]
-    thumbnails: Optional[List[str]] = None
-    video_URLs: Optional[List[str]] = None
+class RAGOutput(BaseModel):
+    answer: str = Field(description="The actual answer to the question")
+    quick_reply_options: List[str] = Field(description="List of possible quick replies to the generated answer")

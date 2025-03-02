@@ -12,7 +12,7 @@ from langchain_community.document_loaders import PyPDFDirectoryLoader, TextLoade
 from langchain_core.documents import Document
 
 from utils.constants import RAG_CONFIG
-from schemas.rag_schema import Language, RAGResponse
+from schemas.rag_schema import Language, RAGOutput
 from services import llm
 
 class RAGService:
@@ -111,7 +111,7 @@ class RAGService:
         docs = self.vectorstore.similarity_search_with_score(question, k=k)
         return [doc[0] for doc in docs]
 
-    def _generate_answer(self, question: str, docs: List[Document], chat_history: List) -> str:
+    def _generate_answer(self, question: str, docs: List[Document], chat_history: List) -> RAGOutput:
         """Generate answer using retrieved documents"""
         # Format prompt with documents and chat history
         context = "\n\n".join([doc.page_content for doc in docs])
@@ -123,14 +123,14 @@ class RAGService:
         )
         
         # Generate response
-        response = llm.invoke(messages).content
+        response: RAGOutput = llm.with_structured_output(RAGOutput).invoke(messages)
         return response
 
     def update_language(self, language: Language):
         self.language = language
         self._setup_prompt()
 
-    def query(self, message: str, chat_history: List[Dict], language: Language) -> RAGResponse:
+    def query(self, message: str, chat_history: List[Dict], language: Language) -> RAGOutput:
         """Process a query through the complete RAG pipeline"""
         logging.info(f"Processing query: {message}")
         
@@ -144,7 +144,7 @@ class RAGService:
         retrieved_docs = self._retrieve_documents(rephrased_question)
         
         # Step 3: Generate answer
-        answer = self._generate_answer(message, retrieved_docs, chat_history)
+        answer: RAGOutput = self._generate_answer(message, retrieved_docs, chat_history)
         
         # Extract sources from retrieved documents
         sources = list({
@@ -152,9 +152,4 @@ class RAGService:
             for doc in retrieved_docs
         })
         
-        return RAGResponse(
-            sources=sources,
-            thumbnails=[],
-            video_URLs=[],
-            answer=answer
-        )
+        return answer
