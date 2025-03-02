@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from schemas.rag_schema import Language
 
 
-class ProfileRequest(BaseModel):
-    username: str
-    caretaker_name: str
-    language: Optional[Language] = Language.GERMAN
+class UpdateProfileRequest(BaseModel):
+    username: Optional[str] = None
+    caretaker_name: Optional[str] = None
+    language: Optional[Language] = None
