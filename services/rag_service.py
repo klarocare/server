@@ -29,7 +29,6 @@ class RAGService:
     def __init__(self):
         if not hasattr(self, "initialized"):
             self.initialized = True
-            self.video_store = []
             self.language = Language.GERMAN
             self.config = RAG_CONFIG
             self._setup_components()
