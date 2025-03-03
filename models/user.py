@@ -22,4 +22,7 @@ class User(MongoModel):
     async def get_recent_messages(self, limit: int = 20):
         """Retrieve all messages associated with this user."""
         return await ChatMessage.find(ChatMessage.user_id == self.id).sort(-ChatMessage.created_at).limit(limit).to_list()
+    
+    async def get_article_info(self):
+        return f"Username is: {self.username}"
 

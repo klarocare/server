@@ -16,18 +16,18 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.post("/article", response_model=Article)
+@router.post("/articles/generate", response_model=Article)
 async def generate_article(current_user: User = Depends(AuthHandler.get_current_user)):
     # Add input to the history
     response = await service.generate_article(current_user)
     return response
 
-@router.get("/article", response_model=List[Article])
+@router.get("/articles", response_model=List[Article])
 async def get_articles(current_user: User = Depends(AuthHandler.get_current_user)):
     # Add input to the history
     return await Article.get_articles_by_user(current_user.id)
 
-@router.get("/article/{id}", response_model=Article)
+@router.get("/articles/{id}", response_model=Article)
 async def get_article_by_id(id: str, current_user: User = Depends(AuthHandler.get_current_user)):
     # Add input to the history
     return await Article.get(id)
