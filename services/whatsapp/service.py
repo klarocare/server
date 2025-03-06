@@ -94,11 +94,11 @@ class WhatsappService:
         await user.save()
         
         response = await self._process_chat_message(user, object_id, message_body)
-        formatted_answer = self.message_formatter.process_text_for_whatsapp(response.answer)
+        formatted_answer = self.message_formatter.process_text_for_whatsapp(response)
         return self.message_formatter.create_message_payload(
             user.whatsapp_id,
             formatted_answer,
-            bool(response.video_URLs)
+            False
         )
 
     async def _is_duplicate_message(self, object_id: str) -> bool:
@@ -138,7 +138,7 @@ class WhatsappService:
         )
         await response_msg.insert()
 
-        return response
+        return response.answer
 
     async def end_user_session(self, user: WhatsappUser) -> None:
         """End user session."""

@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status
 from passlib.context import CryptContext
 
-from models.user import UserCredentials, UserProfile
+from models.user import User
 from schemas.auth_schema import RegisterRequest, LoginRequest, TokenSchema
 from core.auth import AuthHandler
 
@@ -24,31 +24,26 @@ class AuthService:
                 detail="Passwords don't match"
             )
             
-        if await UserCredentials.get_by_email(data.email):
+        if await User.get_by_email(data.email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
             
-        credentials = UserCredentials(
+        user = User(
             email=data.email,
             hashed_password=self.get_password_hash(data.password),
-        )
-        await credentials.insert()
-
-        user_profile = UserProfile(
-            credentials_id=credentials.id,
             username=data.name,
             language=data.language
-            )
-        await user_profile.insert()
+        )
+        await user.insert()
         
         return TokenSchema(
-            access_token=AuthHandler.create_access_token(str(credentials.id))
+            access_token=AuthHandler.create_access_token(str(user.id))
         )
 
     async def login(self, data: LoginRequest) -> TokenSchema:
-        user = await UserCredentials.get_by_email(data.email)
+        user = await User.get_by_email(data.email)
         if not user or not self.verify_password(data.password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

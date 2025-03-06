@@ -1,8 +1,8 @@
 from enum import Enum
 
-from typing import List, Optional
+from typing import List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Language(Enum):
@@ -28,8 +28,14 @@ class RAGRequest(BaseModel):
     message: str
 
 
-class RAGResponse(BaseModel):
-    answer: str
-    sources: List[str]
-    thumbnails: Optional[List[str]] = None
-    video_URLs: Optional[List[str]] = None
+class RAGOutput(BaseModel):
+    answer: str = Field(description="The actual answer to the question")
+    quick_reply_options: List[str] = Field(description="List of possible quick replies to the generated answer")
+
+
+class ArticleOutput(BaseModel):
+    title: str = Field(description="A clear and engaging title for the article")
+    tags: List[str] = Field(description="A list of relevant tags (e.g., caregiving, care money, mobility support)")
+    summary: str = Field(description="A short summary (2-3 sentences) of the article")
+    content: str = Field(description="The main body of the article")
+    estimated_reading_time: int = Field(description="Approximate reading time in minutes")

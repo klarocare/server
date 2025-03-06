@@ -1,5 +1,5 @@
 from services.rag_service import RAGService
-from models.user import UserCredentials, UserProfile
+from models.user import User
 from models.chat import ChatMessage
 
 
@@ -8,8 +8,7 @@ class ChatService:
     def __init__(self):
         self.service = RAGService()
     
-    async def query(self, user_credentials: UserCredentials, message: str):
-        user: UserProfile = await user_credentials.get_user()
+    async def query(self, user: User, message: str):
         chat_history = await user.get_recent_messages()
         formatted_history = [{"role": msg.role, "content": msg.content} for msg in chat_history]
 

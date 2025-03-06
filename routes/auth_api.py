@@ -8,7 +8,7 @@ from schemas.auth_schema import (
     RegisterRequest,
     TokenSchema
 )
-from models.user import UserCredentials
+from models.user import User
 
 
 router = APIRouter(
@@ -36,7 +36,7 @@ async def register(request: RegisterRequest):
         )
 
 @router.post("/logout")
-async def logout(current_user: UserCredentials = Depends(AuthHandler.get_current_user)):
+async def logout(current_user: User = Depends(AuthHandler.get_current_user)):
     """
     Logout user
     Note: In a production environment, you might want to blacklist the token
