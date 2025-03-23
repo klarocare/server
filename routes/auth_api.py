@@ -23,7 +23,7 @@ async def login(request: LoginRequest):
     """Login with email and password"""
     return await auth_service.login(request)
 
-@router.post("/register", response_model=TokenSchema)
+@router.post("/register")
 async def register(request: RegisterRequest):
     """Register a new user"""
     try:
@@ -42,3 +42,8 @@ async def logout(current_user: User = Depends(AuthHandler.get_current_user)):
     Note: In a production environment, you might want to blacklist the token
     """
     return {"detail": "Successfully logged out"}
+
+@router.get("/verify/{token}", response_model=TokenSchema)
+async def verify_email(token: str):
+    """Verify user's email address"""
+    return await auth_service.verify_email(token)

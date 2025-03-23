@@ -11,6 +11,7 @@ from models.whatsapp import WhatsappChatMessage, WhatsappUser
 from models.user import User, ChatMessage
 from models.content import Article
 from core.database import Database
+from core.migrations.run_migrations import run_migrations
 from routes import chat_api, whatsapp_api, auth_api, profile_api, content_api
 from routes.whatsapp_api import create_session_checker, service as whatsapp_service
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
         database=Database._instance.db_name,
         document_models=[WhatsappChatMessage, WhatsappUser, User, ChatMessage, Article]
         )
+    await run_migrations()
 
     # Initialize the clean-up scheduler
     try:

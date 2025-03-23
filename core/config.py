@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     WHATSAPP_PHONE_NUMBER_ID: str | None = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
     WHATSAPP_VERIFY_TOKEN: str | None = os.getenv("WHATSAPP_VERIFY_TOKEN")
     
+    # SMTP Settings
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD")
+    SMTP_SENDER: str = os.getenv("SMTP_SENDER")
+    BASE_URL: str = os.getenv("BASE_URL")
     
     class Config:
         env_file = ".env"

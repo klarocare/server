@@ -1,12 +1,12 @@
-from typing import List
+from typing import List, Annotated
 
-from beanie import PydanticObjectId
+from beanie import PydanticObjectId, Indexed
 from pydantic import Field
 
 from models.base import MongoModel
 
 class Article(MongoModel):
-    user_id: PydanticObjectId 
+    user_id: Annotated[PydanticObjectId, Indexed(unique=True)] 
     title: str = Field(description="A clear and engaging title for the article")
     tags: List[str] = Field(description="A list of relevant tags (e.g., caregiving, care money, mobility support)")
     summary: str = Field(description="A short summary (2-3 sentences) of the article")
