@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Optional, Annotated
 from datetime import datetime
 
 from pydantic import EmailStr, Field
+from beanie import Indexed
 
 from models.base import MongoModel
 from models.chat import ChatMessage
@@ -9,7 +10,7 @@ from schemas.rag_schema import Language
 
 
 class User(MongoModel):
-    email: EmailStr
+    email: Annotated[EmailStr, Indexed(unique=True)]
     hashed_password: str
     is_active: bool = True
     is_verified: bool = False

@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, Annotated
 
 from pydantic import Field
-from beanie import PydanticObjectId
+from beanie import PydanticObjectId, Indexed
 
 from models.base import MongoModel
 from models.chat import Message
@@ -10,7 +10,7 @@ from schemas.rag_schema import Language
 
 
 class WhatsappUser(MongoModel):
-    whatsapp_id: str
+    whatsapp_id: Annotated[str, Indexed(unique=True)]
     last_active: datetime = Field(default_factory=datetime.now)
     is_active: bool = Field(default=True)
     language: Language = Field(default=Language.GERMAN) 
@@ -29,8 +29,8 @@ class WhatsappUser(MongoModel):
 
 class WhatsappChatMessage(Message):
     session_id: PydanticObjectId
-    whatsapp_id: str
-    object_id: Optional[str] = None
+    whatsapp_id: Annotated[str, Indexed(unique=True)]
+    object_id: Annotated[Optional[str], Indexed()] = None
     metadata: Optional[Dict] = None
 
     @classmethod
