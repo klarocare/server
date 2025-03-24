@@ -53,3 +53,16 @@ jobs:
                 WHATSAPP_PHONE_NUMBER_ID=${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
                 WHATSAPP_SECRET=${{ secrets.WHATSAPP_SECRET }}
                 AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
+                AZURE_OPENAI_DEPLOYMENT=${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
+                AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }}
+                WHATSAPP_ACCESS_TOKEN=${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+                RECIPIENT_WAID=${{ secrets.RECIPIENT_WAID }}
+                JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+                ALGORITHM=${{ secrets.ALGORITHM }}
+                DATABASE_NAME=${{ secrets.DATABASE_NAME }}
+                SMTP_HOST=${{ secrets.SMTP_HOST }}
+                SMTP_PORT=${{ secrets.SMTP_PORT }}
+                SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
+                SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+                SMTP_SENDER=${{ secrets.SMTP_SENDER }}
+                BASE_URL=${{ secrets.BASE_URL }}
