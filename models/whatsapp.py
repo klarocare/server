@@ -29,7 +29,7 @@ class WhatsappUser(MongoModel):
 
 class WhatsappChatMessage(Message):
     session_id: PydanticObjectId
-    whatsapp_id: Annotated[str, Indexed(unique=True)]
+    whatsapp_id: Annotated[str, Indexed()]
     object_id: Annotated[Optional[str], Indexed()] = None
     metadata: Optional[Dict] = None
 

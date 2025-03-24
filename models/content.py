@@ -6,7 +6,7 @@ from pydantic import Field
 from models.base import MongoModel
 
 class Article(MongoModel):
-    user_id: Annotated[PydanticObjectId, Indexed(unique=True)] 
+    user_id: Annotated[PydanticObjectId, Indexed()] 
     title: str = Field(description="A clear and engaging title for the article")
     tags: List[str] = Field(description="A list of relevant tags (e.g., caregiving, care money, mobility support)")
     summary: str = Field(description="A short summary (2-3 sentences) of the article")
