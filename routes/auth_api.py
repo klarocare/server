@@ -30,7 +30,10 @@ async def login(request: LoginRequest):
 async def register(request: RegisterRequest):
     """Register a new user"""
     try:
-        return await auth_service.register(request)
+        logging.info(f"Received registration request for email: {request.email}")
+        result = await auth_service.register(request)
+        logging.info(f"Registration successful for email: {request.email}")
+        return result
     except Exception as e:
         logging.error(f"Registration error: {str(e)}")
         raise HTTPException(
