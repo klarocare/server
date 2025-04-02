@@ -59,20 +59,20 @@ class AuthService:
             "email": data.email
         }
 
-    async def verify_email(self, token: str) -> TokenSchema:
+    async def verify_email(self, token: str) -> dict:
         user = await User.get_by_verification_token(token)
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired verification token"
-            )
+            return {
+                "success": False,
+                "error_message": "Invalid or expired verification token"
+            }
 
         # Check if token is expired
         if user.verification_token_expires < datetime.now():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Verification token has expired"
-            )
+            return {
+                "success": False,
+                "error_message": "Verification token has expired"
+            }
 
         # Update user verification status
         user.is_verified = True
@@ -80,9 +80,10 @@ class AuthService:
         user.verification_token_expires = None
         await user.save()
 
-        return TokenSchema(
-            access_token=AuthHandler.create_access_token(str(user.id))
-        )
+        return {
+            "success": True,
+            "access_token": AuthHandler.create_access_token(str(user.id))
+        }
 
     async def login(self, data: LoginRequest) -> TokenSchema:
         user = await User.get_by_email(data.email)

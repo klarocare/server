@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     MONGODB_URI: str = os.getenv("MONGODB_URI")
     DATABASE_NAME: str = os.getenv("DATABASE_NAME")
     
+    # Frontend URLs
+    FLUTTER_APP_URL: str = os.getenv("FLUTTER_APP_URL", "http://localhost:8080")
+    LANDING_PAGE_URL: str = os.getenv("LANDING_PAGE_URL", "http://localhost:3000")
+    USE_FLUTTER_APP: bool = os.getenv("USE_FLUTTER_APP", "true").lower() == "true"
+    
     # Azure OpenAI Settings
     AZURE_OPENAI_API_KEY: str | None = os.getenv("AZURE_OPENAI_API_KEY")
     AZURE_OPENAI_ENDPOINT: str | None = os.getenv("AZURE_OPENAI_ENDPOINT")

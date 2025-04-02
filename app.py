@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 from beanie import init_beanie
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -61,6 +63,10 @@ async def lifespan(app: FastAPI):
     logger.info("Shut down background scheduler")
 
 app = FastAPI(root_path="/api", lifespan=lifespan)
+
+# Mount static files and templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 app.include_router(chat_api.router)
 app.include_router(whatsapp_api.router)
