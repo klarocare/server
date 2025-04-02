@@ -59,7 +59,7 @@ class AuthService:
             "email": data.email
         }
 
-    async def verify_email(self, token: str) -> TokenSchema:
+    async def verify_email(self, token: str) -> dict:
         user = await User.get_by_verification_token(token)
         if not user:
             raise HTTPException(
@@ -80,9 +80,9 @@ class AuthService:
         user.verification_token_expires = None
         await user.save()
 
-        return TokenSchema(
-            access_token=AuthHandler.create_access_token(str(user.id))
-        )
+        return {
+            "email": user.email
+        }
 
     async def login(self, data: LoginRequest) -> TokenSchema:
         user = await User.get_by_email(data.email)
