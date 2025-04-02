@@ -12,7 +12,7 @@ from models.user import User, ChatMessage
 from models.content import Article
 from core.database import Database
 from core.migrations.run_migrations import run_migrations
-from routes import chat_api, whatsapp_api, auth_api, profile_api, content_api
+from routes import chat_api, whatsapp_api, auth_api, profile_api, content_api, care_level_api
 from routes.whatsapp_api import create_session_checker, service as whatsapp_service
 
 
@@ -67,6 +67,7 @@ app.include_router(whatsapp_api.router)
 app.include_router(auth_api.router)
 app.include_router(profile_api.router)
 app.include_router(content_api.router)
+app.include_router(care_level_api.router)
 
 @app.get("/health-check")
 async def root():
