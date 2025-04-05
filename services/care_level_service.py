@@ -10,6 +10,13 @@ from models.user import User
 class CareLevelService:
     @staticmethod
     def calculate_care_level(request: CareLevelRequestSchema, user: User) -> CareLevelResponseSchema:
+        # First, check if user has already calculated care level
+        if user.care_level:
+            return CareLevelResponseSchema(
+                level=user.care_level,
+                benefits=CareLevelService._get_benefits(user.care_level)
+            )
+        
         # Calculate average scores for each module
         mobility_score = CareLevelService._calculate_mobility_score(request.mobility)
         cognition_score = CareLevelService._calculate_cognition_score(request.cognition)
@@ -47,7 +54,6 @@ class CareLevelService:
 
         return CareLevelResponseSchema(
             level=care_level,
-            score=final_score,
             benefits=benefits
         )
 

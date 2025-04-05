@@ -74,5 +74,4 @@ class CareLevelRequestSchema(BaseModel):
 
 class CareLevelResponseSchema(BaseModel):
     level: CareLevel
-    score: float = Field(ge=0, le=100)
     benefits: list[str]
