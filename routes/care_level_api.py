@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from services.care_level_service import CareLevelService
-from schemas.care_level_schema import CareAssessmentSchema, CareEstimateSchema
+from schemas.care_level_schema import CareLevelRequestSchema, CareLevelResponseSchema
 
 
 router = APIRouter(
@@ -10,6 +10,16 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.post("", response_model=CareEstimateSchema)
-async def estimate_care_level(request: CareAssessmentSchema):
-    return CareLevelService.get_care_benefits(request)
+
+@router.post("", response_model=CareLevelResponseSchema)
+async def calculate_care_level(request: CareLevelRequestSchema) -> CareLevelResponseSchema:
+    """
+    Calculate care level based on assessment data.
+    The calculation follows the new scoring system with weighted modules:
+    - M1 Mobility (10%)
+    - M2a/b Cognition/Behavior (15%, higher score used)
+    - M3 Self-care (40%)
+    - M4 Health-related demands (20%)
+    - M5 Everyday & social life (15%)
+    """
+    return CareLevelService.calculate_care_level(request)

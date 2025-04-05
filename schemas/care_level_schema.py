@@ -1,33 +1,78 @@
 from enum import Enum
-from typing import List
-from pydantic import BaseModel
+from typing import Optional
+from pydantic import BaseModel, Field
 
 
 class Frequency(Enum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    NOT_APPLICABLE = "notApplicable"
     NEVER = "never"
-    SOMETIMES = "sometimes"
-    ALWAYS = "always"
+    RARELY = "rarely"
+    FREQUENTLY = "frequently"
 
-    def get_score(self):
-        match self:
-            case Frequency.NEVER:
-                return 0
-            case Frequency.SOMETIMES:
-                return 1
-            case _:
-                return 2
-
-
-class CareAssessmentSchema(BaseModel):
-    is_mobility_restricted: bool 
-    can_walk_short_distance: bool
-    mobilirt_issue_reason: str
-    can_manage_daily_tasks_alone: bool
-    needs_assistance_with_personal_care: Frequency
-    has_memory_issues: Frequency
-    can_express_needs_clearly: Frequency
+    def get_score(self) -> int:
+        return {
+            self.DAILY: 3,
+            self.WEEKLY: 2,
+            self.MONTHLY: 1,
+            self.NOT_APPLICABLE: 0,
+            self.NEVER: 0,
+            self.RARELY: 1,
+            self.FREQUENTLY: 2
+        }[self]
 
 
-class CareEstimateSchema(BaseModel):
-    level: str
-    benefits: List[str]
+class CareLevel(Enum):
+    PG0 = "PG 0"
+    PG1 = "PG 1"
+    PG2 = "PG 2"
+    PG3 = "PG 3"
+    PG4 = "PG 4"
+    PG5 = "PG 5"
+
+
+class MobilitySchema(BaseModel):
+    short_distance: int = Field(ge=0, le=3)
+    transfer: int = Field(ge=0, le=3)
+
+
+class CognitionSchema(BaseModel):
+    recognize_people: int = Field(ge=0, le=3)
+    remember_events: int = Field(ge=0, le=3)
+
+
+class BehaviorSchema(BaseModel):
+    anxious_aggressive: Frequency
+    resist_care: Frequency
+
+
+class SelfCareSchema(BaseModel):
+    personal_hygiene: int = Field(ge=0, le=3)
+    toilet_hygiene: int = Field(ge=0, le=3)
+
+
+class HealthDemandsSchema(BaseModel):
+    medication_needs: Frequency
+    uses_medical_aids: Frequency
+
+
+class EverydayLifeSchema(BaseModel):
+    manage_daily_routine: int = Field(ge=0, le=3)
+    plan_adapt_day: int = Field(ge=0, le=3)
+
+
+class CareLevelRequestSchema(BaseModel):
+    mobility: MobilitySchema
+    cognition: CognitionSchema
+    behavior: BehaviorSchema
+    self_care: SelfCareSchema
+    health_demands: HealthDemandsSchema
+    everyday_life: EverydayLifeSchema
+
+
+class CareLevelResponseSchema(BaseModel):
+    level: CareLevel
+    score: float = Field(ge=0, le=100)
+    benefits: list[str]
