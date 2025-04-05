@@ -6,6 +6,7 @@ from beanie import Indexed
 
 from models.base import MongoModel
 from models.chat import ChatMessage
+from schemas.care_level_schema import CareLevel
 from schemas.rag_schema import Language
 
 
@@ -19,6 +20,7 @@ class User(MongoModel):
     username: str
     caretaker_name: Optional[str] = None
     language: Language = Field(default=Language.GERMAN)
+    care_level: Optional[CareLevel] = None
 
     @classmethod
     async def get_by_email(cls, email: str):
