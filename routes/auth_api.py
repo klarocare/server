@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import RedirectResponse
+from urllib.parse import quote
 import logging
 
 from core.auth import AuthHandler
@@ -10,6 +12,7 @@ from schemas.auth_schema import (
     TokenSchema
 )
 from models.user import User
+from core.config import settings
 
 
 router = APIRouter(
@@ -32,7 +35,10 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 async def register(request: RegisterRequest):
     """Register a new user"""
     try:
-        return await auth_service.register(request)
+        logging.info(f"Received registration request for email: {request.email}")
+        result = await auth_service.register(request)
+        logging.info(f"Registration successful for email: {request.email}")
+        return result
     except Exception as e:
         logging.error(f"Registration error: {str(e)}")
         raise HTTPException(
@@ -48,7 +54,12 @@ async def logout(current_user: User = Depends(AuthHandler.get_current_user)):
     """
     return {"detail": "Successfully logged out"}
 
-@router.get("/verify/{token}", response_model=TokenSchema)
+@router.get("/verify/{token}")
 async def verify_email(token: str):
     """Verify user's email address"""
-    return await auth_service.verify_email(token)
+    result = await auth_service.verify_email(token)
+    # Redirect to the specific verification success page with URL-encoded email
+    return RedirectResponse(
+        url=f"https://klaro.care/verification/success?email={quote(result['email'])}",
+        status_code=status.HTTP_302_FOUND
+    )
