@@ -9,13 +9,7 @@ from models.user import User
 
 class CareLevelService:
     @staticmethod
-    def calculate_care_level(request: CareLevelRequestSchema, user: User) -> CareLevelResponseSchema:
-        # First, check if user has already calculated care level
-        if user.care_level:
-            return CareLevelResponseSchema(
-                level=user.care_level,
-                benefits=CareLevelService._get_benefits(user.care_level)
-            )
+    async def calculate_care_level(request: CareLevelRequestSchema, user: User) -> CareLevelResponseSchema:
         
         # Calculate average scores for each module
         mobility_score = CareLevelService._calculate_mobility_score(request.mobility)
@@ -44,10 +38,10 @@ class CareLevelService:
         # Calculate final score (0-100)
         final_score = (total_weighted_score / 300) * 100
 
-        # Determine care level based on final score, and update user's care level
+        # Determine care level based on final score, and update/overwrite user's care level
         care_level = CareLevelService._determine_care_level(final_score)
         user.care_level = care_level
-        user.save()
+        await user.save()
         
         # Get benefits based on care level
         benefits = CareLevelService._get_benefits(care_level)

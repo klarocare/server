@@ -19,6 +19,7 @@ class User(MongoModel):
     verification_token_expires: Optional[datetime] = None
     username: str
     caretaker_name: Optional[str] = None
+    caretaker_relationship: Optional[str] = None
     language: Language = Field(default=Language.GERMAN)
     care_level: Optional[CareLevel] = None
 

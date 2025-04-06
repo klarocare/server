@@ -24,4 +24,4 @@ async def calculate_care_level(request: CareLevelRequestSchema, current_user: Us
     - M4 Health-related demands (20%)
     - M5 Everyday & social life (15%)
     """
-    return CareLevelService.calculate_care_level(request, current_user)
+    return await CareLevelService.calculate_care_level(request, current_user)
