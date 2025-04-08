@@ -52,7 +52,6 @@ jobs:
               SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
               SMTP_SENDER=${{ secrets.SMTP_SENDER }} \
               BASE_URL=${{ secrets.BASE_URL }} \
-              MONGODB_URI=${{ secrets.MONGODB_URI }} \
               WHATSAPP_VERIFY_TOKEN=${{ secrets.WHATSAPP_VERIFY_TOKEN }} \
               WHATSAPP_ID=${{ secrets.WHATSAPP_ID }} \
               WHATSAPP_VERSION=${{ secrets.WHATSAPP_VERSION }} \
@@ -63,5 +62,6 @@ jobs:
               AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }} \
               WHATSAPP_ACCESS_TOKEN=${{ secrets.WHATSAPP_ACCESS_TOKEN }} \
               RECIPIENT_WAID=${{ secrets.RECIPIENT_WAID }} \
-              JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+              JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} \
+              MONGODB_URI=${{ secrets.MONGODB_URI }}
               
