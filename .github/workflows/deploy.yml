@@ -44,9 +44,9 @@ jobs:
             --image ${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
             --set-env-vars \
               AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }} \
-              ALGORITHM="HS256" \
-              DATABASE_NAME="db_name" \
-              SMTP_HOST="smtp.zoho.eu" \
+              ALGORITHM=${{ secrets.ALGORITHM }} \
+              DATABASE_NAME=${{ secrets.DATABASE_NAME }} \
+              SMTP_HOST=${{ secrets.SMTP_HOST }} \
               SMTP_PORT=${{ secrets.SMTP_PORT }} \
               SMTP_USERNAME=${{ secrets.SMTP_USERNAME }} \
               SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
