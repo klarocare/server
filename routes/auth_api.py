@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
 from urllib.parse import quote
 import logging
@@ -22,9 +23,13 @@ router = APIRouter(
 auth_service = AuthService()
 
 @router.post("/login", response_model=TokenSchema)
-async def login(request: LoginRequest):
-    """Login with email and password"""
-    return await auth_service.login(request)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """Login with username (email) and password"""
+    login_request = LoginRequest(
+        email=form_data.username,
+        password=form_data.password
+    )
+    return await auth_service.login(login_request)
 
 @router.post("/register")
 async def register(request: RegisterRequest):
