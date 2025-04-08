@@ -35,39 +35,32 @@ jobs:
         run: |
           IMAGE_NAME=${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}
           docker buildx build --platform linux/amd64 -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest --push .
-      - name: Echo non-sensitive env vars
-        run: |
-          echo "ALGORITHM=${{ secrets.ALGORITHM }}"
-          echo "DATABASE_NAME=${{ secrets.DATABASE_NAME }}"
-          echo "BASE_URL=${{ secrets.BASE_URL }}"
 
-      - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v1
-        with:
-            containerAppName: ${{ secrets.AZURE_CONTAINER_APP_NAME }}
-            resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
-            imageToDeploy: ${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            targetPort: 8000
-            ingress: external
-            environmentVariables: >
-                AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }}
-                MONGODB_URI=${{ secrets.MONGODB_URI }}
-                WHATSAPP_VERIFY_TOKEN=${{ secrets.WHATSAPP_VERIFY_TOKEN }}
-                WHATSAPP_ID=${{ secrets.WHATSAPP_ID }}
-                WHATSAPP_VERSION=${{ secrets.WHATSAPP_VERSION }}
-                WHATSAPP_PHONE_NUMBER_ID=${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
-                WHATSAPP_SECRET=${{ secrets.WHATSAPP_SECRET }}
-                AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }}
-                AZURE_OPENAI_DEPLOYMENT=${{ secrets.AZURE_OPENAI_DEPLOYMENT }}
-                AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }}
-                WHATSAPP_ACCESS_TOKEN=${{ secrets.WHATSAPP_ACCESS_TOKEN }}
-                RECIPIENT_WAID=${{ secrets.RECIPIENT_WAID }}
-                JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
-                ALGORITHM=${{ secrets.ALGORITHM }}
-                DATABASE_NAME=${{ secrets.DATABASE_NAME }}
-                SMTP_HOST=${{ secrets.SMTP_HOST }}
-                SMTP_PORT=${{ secrets.SMTP_PORT }}
-                SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
-                SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
-                SMTP_SENDER=${{ secrets.SMTP_SENDER }}
-                BASE_URL=${{ secrets.BASE_URL }}
+      - name: Deploy to Azure Container Apps with direct Azure CLI
+        run: |
+          az containerapp update \
+            --name ${{ secrets.AZURE_CONTAINER_APP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --image ${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --set-env-vars \
+              AZURE_OPENAI_API_KEY=${{ secrets.AZURE_OPENAI_API_KEY }} \
+              MONGODB_URI=${{ secrets.MONGODB_URI }} \
+              WHATSAPP_VERIFY_TOKEN=${{ secrets.WHATSAPP_VERIFY_TOKEN }} \
+              WHATSAPP_ID=${{ secrets.WHATSAPP_ID }} \
+              WHATSAPP_VERSION=${{ secrets.WHATSAPP_VERSION }} \
+              WHATSAPP_PHONE_NUMBER_ID=${{ secrets.WHATSAPP_PHONE_NUMBER_ID }} \
+              WHATSAPP_SECRET=${{ secrets.WHATSAPP_SECRET }} \
+              AZURE_OPENAI_ENDPOINT=${{ secrets.AZURE_OPENAI_ENDPOINT }} \
+              AZURE_OPENAI_DEPLOYMENT=${{ secrets.AZURE_OPENAI_DEPLOYMENT }} \
+              AZURE_OPENAI_API_VERSION=${{ secrets.AZURE_OPENAI_API_VERSION }} \
+              WHATSAPP_ACCESS_TOKEN=${{ secrets.WHATSAPP_ACCESS_TOKEN }} \
+              RECIPIENT_WAID=${{ secrets.RECIPIENT_WAID }} \
+              JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} \
+              ALGORITHM=${{ secrets.ALGORITHM }} \
+              DATABASE_NAME=${{ secrets.DATABASE_NAME }} \
+              SMTP_HOST=${{ secrets.SMTP_HOST }} \
+              SMTP_PORT=${{ secrets.SMTP_PORT }} \
+              SMTP_USERNAME=${{ secrets.SMTP_USERNAME }} \
+              SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }} \
+              SMTP_SENDER=${{ secrets.SMTP_SENDER }} \
+              BASE_URL=${{ secrets.BASE_URL }}
