@@ -35,6 +35,11 @@ jobs:
         run: |
           IMAGE_NAME=${{ secrets.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.IMAGE_NAME }}
           docker buildx build --platform linux/amd64 -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest --push .
+      - name: Echo non-sensitive env vars
+        run: |
+          echo "ALGORITHM=${{ secrets.ALGORITHM }}"
+          echo "DATABASE_NAME=${{ secrets.DATABASE_NAME }}"
+          echo "BASE_URL=${{ secrets.BASE_URL }}"
 
       - name: Deploy to Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
