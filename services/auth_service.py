@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from secrets import token_urlsafe
+import logging
 
 from models.user import User
 from schemas.auth_schema import RegisterRequest, LoginRequest, TokenSchema
@@ -29,13 +30,14 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Passwords don't match"
             )
-            
+        
+        logging.info(f"Step 1: Checking if email is already registered")
         if await User.get_by_email(data.email):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
-            
+        logging.info(f"Step 2: Generating verification token")
         # Generate verification token
         verification_token = token_urlsafe(32)
         token_expires = datetime.now() + timedelta(hours=24)
@@ -49,9 +51,11 @@ class AuthService:
             verification_token_expires=token_expires,
             is_verified=False
         )
+        logging.info(f"Step 3: Inserting user into database")
         await user.insert()
         
         # Send verification email
+        logging.info(f"Step 4: Sending verification email")
         await self.email_service.send_verification_email(data.email, verification_token)
         
         return {

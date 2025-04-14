@@ -13,7 +13,7 @@ class EmailService:
     @staticmethod
     async def send_verification_email(email: str, token: str):
         try:
-            logger.info(f"Preparing to send verification email to {email}")
+            logger.info(f"Step 5: Preparing to send verification email to {email}")
             
             message = MIMEMultipart()
             message["From"] = settings.SMTP_SENDER
@@ -34,7 +34,7 @@ class EmailService:
             # Create SSL context
             ssl_context = ssl.create_default_context()
             
-            logger.info(f"Attempting SMTP connection to {settings.SMTP_HOST}:{settings.SMTP_PORT}")
+            logger.info(f"Step 6: Attempting SMTP connection to {settings.SMTP_HOST}:{settings.SMTP_PORT}")
             
             async with SMTP(
                 hostname=settings.SMTP_HOST,
@@ -43,13 +43,13 @@ class EmailService:
                 tls_context=ssl_context,
                 timeout=30
             ) as smtp:
-                logger.info("Attempting login...")
+                logger.info("Step 7: Attempting login...")
                 await smtp.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
                 
-                logger.info("Sending message...")
+                logger.info("Step 8: Sending message...")
                 await smtp.send_message(message)
                 
-                logger.info("Email sent successfully")
+                logger.info("Step 9: Email sent successfully")
 
         except TimeoutError as e:
             logger.error(f"SMTP timeout error: {str(e)}")
