@@ -14,6 +14,7 @@ from langchain_core.documents import Document
 from utils.constants import RAG_CONFIG
 from schemas.rag_schema import Language, RAGOutput
 from services import llm
+from core.config import settings
 
 class RAGService:
     _instance = None
@@ -62,8 +63,9 @@ class RAGService:
         self.splits = self.text_splitter.split_documents(docs)
         logging.info(f"Created {len(self.splits)} splits")
 
-        # Setup embeddings and vector store
+        # Setup embeddings and vector store with fresh settings
         self.embeddings = AzureOpenAIEmbeddings(
+            azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
             model=self.config['embedding_model'],
             api_version=self.config['api_version']
         )
@@ -100,7 +102,10 @@ class RAGService:
             input=input,
             chat_history=chat_history
         )
-        rephrased = llm.invoke(messages).content
+        # Use fresh LLM instance to ensure current settings
+        from services import get_llm
+        fresh_llm = get_llm()
+        rephrased = fresh_llm.invoke(messages).content
         logging.info(f"Rephrased question: {rephrased}")
         return rephrased
 
@@ -122,7 +127,10 @@ class RAGService:
         )
         
         # Generate response
-        response: RAGOutput = llm.with_structured_output(RAGOutput).invoke(messages)
+        # Use fresh LLM instance to ensure current settings
+        from services import get_llm
+        fresh_llm = get_llm()
+        response: RAGOutput = fresh_llm.with_structured_output(RAGOutput).invoke(messages)
         return response
 
     def update_language(self, language: Language):
@@ -152,3 +160,11 @@ class RAGService:
         })
         
         return answer
+
+    @classmethod
+    def force_reload(cls):
+        """Force reload of the RAG service with fresh settings"""
+        if cls._instance:
+            cls._instance.initialized = False
+            cls._instance = None
+        return cls(force_reload=True)

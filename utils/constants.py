@@ -6,8 +6,8 @@ RAG_CONFIG = {
     "pdf_path": "pdf/",
     "text_path": "text/",
     "json_path": "json/",
-    "embedding_model": "text-embedding-ada-002",
-    "api_version": "2023-05-15",
+    "embedding_model": "text-embedding-3-small",
+    "api_version": "2024-02-01",
     "retriever_args": {
         "search_type":"mmr", 
         "search_kwargs": {'k': 5, 'fetch_k': 100, "score_threshold": 0.8}},
@@ -16,8 +16,8 @@ RAG_CONFIG = {
 
 AGENT_CONFIG = {
     "db_path": "utils/db/",
-    "embedding_model": "text-embedding-ada-002",
-    "api_version": "2023-05-15",
+    "embedding_model": "text-embedding-3-small",
+    "api_version": "2024-02-01",
     "k": 5,
     'qa_system_prompt': """
     ## Übersicht  
