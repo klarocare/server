@@ -1,5 +1,5 @@
 import os
-
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 
@@ -36,7 +36,31 @@ class Settings(BaseSettings):
     SMTP_SENDER: str = os.getenv("SMTP_SENDER")
     BASE_URL: str = os.getenv("BASE_URL")
     
+    @classmethod
+    def reload_env(cls):
+        """Force reload environment variables"""
+        # Clear existing environment variables
+        env_vars = [
+            "JWT_SECRET_KEY", "ALGORITHM", "MONGODB_URI", "DATABASE_NAME",
+            "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_VERSION",
+            "AZURE_OPENAI_DEPLOYMENT", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_ID",
+            "WHATSAPP_SECRET", "RECIPIENT_WAID", "WHATSAPP_VERSION",
+            "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "SMTP_HOST",
+            "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER", "BASE_URL"
+        ]
+        
+        for var in env_vars:
+            if var in os.environ:
+                del os.environ[var]
+        
+        # Reload from .env file
+        load_dotenv(override=True)
+        
+        # Return new instance with fresh values
+        return cls()
+    
     class Config:
         env_file = ".env"
 
+# Initialize settings with fresh environment
 settings = Settings() 

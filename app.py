@@ -1,6 +1,7 @@
 import logging
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from beanie import init_beanie
@@ -9,10 +10,9 @@ from apscheduler.triggers.cron import CronTrigger
 
 from models.whatsapp import WhatsappChatMessage, WhatsappUser
 from models.user import User, ChatMessage
-from models.content import Article
 from core.database import Database
 from core.migrations.run_migrations import run_migrations
-from routes import chat_api, whatsapp_api, auth_api, profile_api, content_api, care_level_api
+from routes import chat_api, whatsapp_api, auth_api, profile_api, care_level_api
 from routes.whatsapp_api import create_session_checker, service as whatsapp_service
 
 
@@ -26,7 +26,30 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-load_dotenv(override=True)
+
+# Clear environment cache and reload
+def clear_env_cache():
+    """Clear environment variables that might be cached"""
+    # Remove any existing .env variables from os.environ
+    env_vars_to_clear = [
+        "JWT_SECRET_KEY", "ALGORITHM", "MONGODB_URI", "DATABASE_NAME",
+        "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_VERSION",
+        "AZURE_OPENAI_DEPLOYMENT", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_ID",
+        "WHATSAPP_SECRET", "RECIPIENT_WAID", "WHATSAPP_VERSION",
+        "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "SMTP_HOST",
+        "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER", "BASE_URL"
+    ]
+    
+    for var in env_vars_to_clear:
+        if var in os.environ:
+            del os.environ[var]
+    
+    # Reload environment variables
+    load_dotenv(override=True)
+    logger.info("Environment cache cleared and reloaded")
+
+# Clear environment cache on startup
+clear_env_cache()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,9 +57,9 @@ async def lifespan(app: FastAPI):
     await Database.initialize()
     await init_beanie(
         database=Database._instance.db_name,
-        document_models=[WhatsappChatMessage, WhatsappUser, User, ChatMessage, Article]
+        document_models=[WhatsappChatMessage, WhatsappUser, User, ChatMessage]
         )
-    await run_migrations()
+    # await run_migrations()
 
     # Initialize the clean-up scheduler
     try:
@@ -66,7 +89,6 @@ app.include_router(chat_api.router)
 app.include_router(whatsapp_api.router)
 app.include_router(auth_api.router)
 app.include_router(profile_api.router)
-app.include_router(content_api.router)
 app.include_router(care_level_api.router)
 
 @app.get("/health-check")
