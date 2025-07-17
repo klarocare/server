@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from beanie import init_beanie
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from fastapi.middleware.cors import CORSMiddleware
 
 from models.whatsapp import WhatsappChatMessage, WhatsappUser
 from models.user import User, ChatMessage
@@ -90,6 +91,14 @@ app.include_router(whatsapp_api.router)
 app.include_router(auth_api.router)
 app.include_router(profile_api.router)
 app.include_router(care_level_api.router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your domain
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 @app.get("/health-check")
 async def root():
