@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     SMTP_SENDER: str = os.getenv("SMTP_SENDER")
     BASE_URL: str = os.getenv("BASE_URL")
     
+    # Google Sheets Settings
+    GOOGLE_SHEETS_CREDENTIALS: str | None = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
+    GOOGLE_SHEETS_CREDENTIALS_FILE: str | None = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE")
+    GOOGLE_SHEETS_SPREADSHEET_ID: str | None = os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
+    
     @classmethod
     def reload_env(cls):
         """Force reload environment variables"""
@@ -46,7 +51,8 @@ class Settings(BaseSettings):
             "AZURE_OPENAI_DEPLOYMENT", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_ID",
             "WHATSAPP_SECRET", "RECIPIENT_WAID", "WHATSAPP_VERSION",
             "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "SMTP_HOST",
-            "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER", "BASE_URL"
+            "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER", "BASE_URL",
+            "GOOGLE_SHEETS_CREDENTIALS", "GOOGLE_SHEETS_CREDENTIALS_FILE", "GOOGLE_SHEETS_SPREADSHEET_ID"
         ]
         
         for var in env_vars:

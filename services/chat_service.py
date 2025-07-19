@@ -38,10 +38,4 @@ class ChatService:
         # Convert client chat history to the format expected by RAG service
         formatted_history = [{"role": msg.role, "content": msg.content} for msg in request.chat_history]
 
-        response = self.service.query(
-            message=request.message, 
-            chat_history=formatted_history, 
-            language=request.language
-        )
-
-        return response
+        return self.service.query(message=request.message, chat_history=formatted_history, language=request.language)

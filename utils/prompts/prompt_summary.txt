@@ -1,0 +1,10 @@
+Briefly summarize the chat history for a support agent
+(max. 120 words, factual, without polite phrases).
+
+The following points **must** be included:
+• User's concerns
+• Advice/links already given
+• Open questions or issues
+
+Chat history:
+{chat_history}

@@ -1,6 +1,6 @@
 from enum import Enum
 
-from typing import List
+from typing import List, Union
 
 from pydantic import BaseModel, Field
 
@@ -37,6 +37,11 @@ class PublicChatRequest(BaseModel):
 class RAGOutput(BaseModel):
     answer: str = Field(description="The actual answer to the question")
     quick_reply_options: List[str] = Field(description="List of possible quick replies to the generated answer")
+
+
+class ChatResponse(BaseModel):
+    has_callback: bool = Field(description="Whether the response requires a callback")
+    response: Union[RAGOutput, str] = Field(description="The actual response to the question")
 
 
 class ArticleOutput(BaseModel):

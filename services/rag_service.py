@@ -1,7 +1,7 @@
 import logging
 import os
 import threading
-from typing import List, Dict
+from typing import List, Dict, Tuple, Union
 
 from langchain import hub
 from langchain_openai import AzureOpenAIEmbeddings
@@ -12,9 +12,9 @@ from langchain_community.document_loaders import PyPDFDirectoryLoader, TextLoade
 from langchain_core.documents import Document
 
 from utils.constants import RAG_CONFIG
-from schemas.rag_schema import Language, RAGOutput
-from services import llm
+from schemas.rag_schema import Language, RAGOutput, ChatResponse
 from core.config import settings
+from services import llm
 
 class RAGService:
     _instance = None
@@ -87,6 +87,9 @@ class RAGService:
         # Load prompt template
         with open(os.path.join(self.config['prompt_path'], f'prompt_klaro.txt'), 'r') as file:
             self.system_prompt = file.read()
+        
+        with open(os.path.join(self.config['prompt_path'], f'prompt_summary.txt'), 'r') as file:
+            self.summary_prompt = file.read()
 
         self.system_prompt = self.system_prompt.replace("{preferred_language}", self.language.get_prompt_language())
         
@@ -102,10 +105,7 @@ class RAGService:
             input=input,
             chat_history=chat_history
         )
-        # Use fresh LLM instance to ensure current settings
-        from services import get_llm
-        fresh_llm = get_llm()
-        rephrased = fresh_llm.invoke(messages).content
+        rephrased = llm.invoke(messages).content
         logging.info(f"Rephrased question: {rephrased}")
         return rephrased
 
@@ -114,6 +114,20 @@ class RAGService:
         k = kwargs.get('k', self.config['retriever_args'].get('search_kwargs', {}).get('k', 4))
         docs = self.vectorstore.similarity_search_with_score(question, k=k)
         return [doc[0] for doc in docs]
+    
+    def _summarise_history(self, history: list[dict]) -> str:
+        # keep only user & assistant turns
+        lines = [
+            f"{m['role'].capitalize()}: {m['content'].strip()}"
+            for m in history
+            if m["role"] in ("user", "assistant")
+        ]
+        chat_transcript = "\n".join(lines)[-6_000:]   # last ~6k chars for safety
+
+        prompt = self.summary_prompt.format(chat_history=chat_transcript)
+
+        summary = llm.invoke(prompt).content.strip()
+        return summary  
 
     def _generate_answer(self, question: str, docs: List[Document], chat_history: List) -> RAGOutput:
         """Generate answer using retrieved documents"""
@@ -127,19 +141,36 @@ class RAGService:
         )
         
         # Generate response
-        # Use fresh LLM instance to ensure current settings
-        from services import get_llm
-        fresh_llm = get_llm()
-        response: RAGOutput = fresh_llm.with_structured_output(RAGOutput).invoke(messages)
+        response: RAGOutput = llm.with_structured_output(RAGOutput).invoke(messages)
         return response
+    
+    def _check_for_callback(self, message: str, chat_history: List[Dict]) -> bool:
+        """Check if the user wants a callback"""
+        ai_msg = llm.invoke(chat_history + [{"role": "user", "content": message}])
+
+        logging.info(f"AI message: {ai_msg}")
+
+        if ai_msg.tool_calls:
+            logging.info(f"Tool calls: {ai_msg.tool_calls}")
+            summary = self._summarise_history(chat_history + [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": ai_msg.tool_calls[0]["args"]["conversation_summary"]}
+            ])
+
+            return True, summary
+        return False, None
 
     def update_language(self, language: Language):
         self.language = language
         self._setup_prompt()
 
-    def query(self, message: str, chat_history: List[Dict], language: Language) -> RAGOutput:
+    def query(self, message: str, chat_history: List[Dict], language: Language) -> ChatResponse:
         """Process a query through the complete RAG pipeline"""
         logging.info(f"Processing query: {message}")
+
+        has_callback, callback_summary = self._check_for_callback(message, chat_history)
+        if has_callback:
+            return ChatResponse(has_callback=True, response=callback_summary)
         
         # Step 0: Setup the prompt for the language
         self.update_language(language)
@@ -159,12 +190,7 @@ class RAGService:
             for doc in retrieved_docs
         })
         
-        return answer
+        response = ChatResponse(has_callback=False, response=answer)
+        logging.info(f"Response: {response}")
+        return response
 
-    @classmethod
-    def force_reload(cls):
-        """Force reload of the RAG service with fresh settings"""
-        if cls._instance:
-            cls._instance.initialized = False
-            cls._instance = None
-        return cls(force_reload=True)

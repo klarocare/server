@@ -2,21 +2,18 @@ from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
 
 from core.config import settings
+from services.callback_service import request_callback
 
 load_dotenv()
 
-
-def get_llm():
-    """Get a fresh LLM instance with current settings"""
-    return AzureChatOpenAI(
+llm = AzureChatOpenAI(
         azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
         azure_deployment=settings.AZURE_OPENAI_DEPLOYMENT, 
         api_version=settings.AZURE_OPENAI_API_VERSION,
+        api_key=settings.AZURE_OPENAI_API_KEY,
+        model=settings.AZURE_OPENAI_DEPLOYMENT,
         temperature=0,
         max_tokens=None,
         timeout=None,
         max_retries=2
-    )
-
-# Initialize with fresh settings
-llm = get_llm()
+    ).bind_tools([request_callback])
