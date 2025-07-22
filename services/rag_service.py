@@ -122,11 +122,12 @@ class RAGService:
             for m in history
             if m["role"] in ("user", "assistant")
         ]
-        chat_transcript = "\n".join(lines)[-6_000:]   # last ~6k chars for safety
-
+        chat_transcript = "\n".join(lines)
+        logging.info(f"Chat transcript: {chat_transcript}")
         prompt = self.summary_prompt.format(chat_history=chat_transcript)
-
-        summary = llm.invoke(prompt).content.strip()
+        logging.info(f"Summary prompt: {prompt}")
+        summary = llm.invoke(prompt).content
+        logging.info(f"Summary: {summary}")
         return summary  
 
     def _generate_answer(self, question: str, docs: List[Document], chat_history: List) -> RAGOutput:
@@ -146,16 +147,15 @@ class RAGService:
     
     def _check_for_callback(self, message: str, chat_history: List[Dict]) -> bool:
         """Check if the user wants a callback"""
+        logging.info(f"Checking for callback")
+        logging.info(f"Chat history: {chat_history}")
+        logging.info(f"Message: {message}")
         ai_msg = llm.invoke(chat_history + [{"role": "user", "content": message}])
-
         logging.info(f"AI message: {ai_msg}")
-
         if ai_msg.tool_calls:
             logging.info(f"Tool calls: {ai_msg.tool_calls}")
-            summary = self._summarise_history(chat_history + [
-                {"role": "user", "content": message},
-                {"role": "assistant", "content": ai_msg.tool_calls[0]["args"]["conversation_summary"]}
-            ])
+            summary = self._summarise_history(chat_history)
+            logging.info(f"Summary: {summary}")
 
             return True, summary
         return False, None

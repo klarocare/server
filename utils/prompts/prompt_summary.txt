@@ -1,10 +1,8 @@
-Briefly summarize the chat history for a support agent
-(max. 120 words, factual, without polite phrases).
+Task: Write a first-person ("I…") summary of the conversation for a support agent.
+Length: ≤ 120 words.
+Tone: Factual, direct—no greetings, sign-offs or polite fillers.
+Coverage: User’s request or issue (what I’m trying to do / what’s wrong).
+Output format: A single paragraph written from the user’s point of view, starting with phrases like “I want… / I have a problem… / I need…”.
 
-The following points **must** be included:
-• User's concerns
-• Advice/links already given
-• Open questions or issues
-
-Chat history:
+Chat history (context):
 {chat_history}
