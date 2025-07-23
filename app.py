@@ -7,12 +7,13 @@ from fastapi import FastAPI
 from beanie import init_beanie
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from fastapi.middleware.cors import CORSMiddleware
 
 from models.whatsapp import WhatsappChatMessage, WhatsappUser
 from models.user import User, ChatMessage
 from core.database import Database
 from core.migrations.run_migrations import run_migrations
-from routes import chat_api, whatsapp_api, auth_api, profile_api, care_level_api
+from routes import chat_api, whatsapp_api, auth_api, profile_api, care_level_api, callback_api
 from routes.whatsapp_api import create_session_checker, service as whatsapp_service
 
 
@@ -37,7 +38,8 @@ def clear_env_cache():
         "AZURE_OPENAI_DEPLOYMENT", "WHATSAPP_ACCESS_TOKEN", "WHATSAPP_ID",
         "WHATSAPP_SECRET", "RECIPIENT_WAID", "WHATSAPP_VERSION",
         "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "SMTP_HOST",
-        "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER", "BASE_URL"
+        "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER", "BASE_URL",
+        "GOOGLE_SHEETS_CREDENTIALS", "GOOGLE_SHEETS_CREDENTIALS_FILE", "GOOGLE_SHEETS_SPREADSHEET_ID"
     ]
     
     for var in env_vars_to_clear:
@@ -90,6 +92,15 @@ app.include_router(whatsapp_api.router)
 app.include_router(auth_api.router)
 app.include_router(profile_api.router)
 app.include_router(care_level_api.router)
+app.include_router(callback_api.router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your domain
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 @app.get("/health-check")
 async def root():

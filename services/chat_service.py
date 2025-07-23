@@ -1,6 +1,7 @@
 from services.rag_service import RAGService
 from models.user import User
 from models.chat import ChatMessage
+from schemas.rag_schema import PublicChatRequest, RAGMessage
 
 
 class ChatService:
@@ -31,3 +32,10 @@ class ChatService:
         await response_msg.insert()
 
         return response
+
+    async def public_query(self, request: PublicChatRequest):
+        """Handle public chat requests without authentication"""
+        # Convert client chat history to the format expected by RAG service
+        formatted_history = [{"role": msg.role, "content": msg.content} for msg in request.chat_history]
+
+        return self.service.query(message=request.message, chat_history=formatted_history, language=request.language)
