@@ -9,12 +9,14 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi.middleware.cors import CORSMiddleware
 
+from models.inbox import InboxItem
 from models.whatsapp import WhatsappChatMessage, WhatsappUser
 from models.user import User, ChatMessage
 from core.database import Database
 from core.migrations.run_migrations import run_migrations
 from routes import chat_api, whatsapp_api, auth_api, profile_api, care_level_api, callback_api
 from routes.whatsapp_api import create_session_checker, service as whatsapp_service
+from routes import inbox_api
 
 
 scheduler = AsyncIOScheduler()
@@ -59,7 +61,7 @@ async def lifespan(app: FastAPI):
     await Database.initialize()
     await init_beanie(
         database=Database._instance.db_name,
-        document_models=[WhatsappChatMessage, WhatsappUser, User, ChatMessage]
+        document_models=[WhatsappChatMessage, WhatsappUser, User, ChatMessage, InboxItem]
         )
     # await run_migrations()
 
@@ -88,11 +90,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(root_path="/api", lifespan=lifespan)
 
 app.include_router(chat_api.router)
-app.include_router(whatsapp_api.router)
-app.include_router(auth_api.router)
-app.include_router(profile_api.router)
-app.include_router(care_level_api.router)
+#app.include_router(whatsapp_api.router)
+#app.include_router(auth_api.router)
+#app.include_router(profile_api.router)
+#app.include_router(care_level_api.router)
 app.include_router(callback_api.router)
+app.include_router(inbox_api.router)
 
 app.add_middleware(
     CORSMiddleware,
