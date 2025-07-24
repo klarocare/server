@@ -1,4 +1,4 @@
-from services.rag_service import RAGService
+from services.agent.service import AgenticRAGService as RAGService
 from models.user import User
 from models.chat import ChatMessage
 from schemas.rag_schema import PublicChatRequest, RAGMessage
