@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     GOOGLE_SHEETS_CREDENTIALS: str | None = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
     GOOGLE_SHEETS_CREDENTIALS_FILE: str | None = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE")
     GOOGLE_SHEETS_SPREADSHEET_ID: str | None = os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
+
+    # Langfuse Settings
+    LANGFUSE_HOST: str | None = os.getenv("LANGFUSE_HOST")
+    LANGFUSE_SECRET_KEY: str | None = os.getenv("LANGFUSE_SECRET_KEY")
+    LANGFUSE_PUBLIC_KEY: str | None = os.getenv("LANGFUSE_PUBLIC_KEY")
     
     @classmethod
     def reload_env(cls):
@@ -52,7 +57,8 @@ class Settings(BaseSettings):
             "WHATSAPP_SECRET", "RECIPIENT_WAID", "WHATSAPP_VERSION",
             "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_VERIFY_TOKEN", "SMTP_HOST",
             "SMTP_PORT", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_SENDER", "BASE_URL",
-            "GOOGLE_SHEETS_CREDENTIALS", "GOOGLE_SHEETS_CREDENTIALS_FILE", "GOOGLE_SHEETS_SPREADSHEET_ID"
+            "GOOGLE_SHEETS_CREDENTIALS", "GOOGLE_SHEETS_CREDENTIALS_FILE", "GOOGLE_SHEETS_SPREADSHEET_ID",
+            "LANGFUSE_HOST", "LANGFUSE_SECRET_KEY", "LANGFUSE_PUBLIC_KEY"
         ]
         
         for var in env_vars:
