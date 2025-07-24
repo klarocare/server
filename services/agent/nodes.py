@@ -29,10 +29,6 @@ def classify_node(state: SessionState) -> dict:
     ).content or ""
     tokens = raw.strip().split()
     decision = tokens[0].upper() if tokens else "NO_DOCS"
-    
-    print("--------------------------------")
-    print("decision: ", decision)
-    print("--------------------------------")
 
     return {"route": decision}
 
@@ -63,9 +59,6 @@ def retrieve_node(state: SessionState, vs: VectorStoreManager) -> dict:
         f"Rewrite the next question standalone: {state['user_msg']}"
     ).content
     state["docs"] = vs.search(rephrased)
-    print("--------------------------------")
-    print("docs: ", state["docs"])
-    print("--------------------------------")
     return {"docs": state["docs"]}
 
 def draft_answer_node(state: SessionState) -> dict:
@@ -81,7 +74,5 @@ def draft_answer_node(state: SessionState) -> dict:
         prompt,
         config={"callbacks": [langfuse_handler]},
     )
-    print("--------------------------------")
-    print("answer: ", answer)
-    print("--------------------------------")
+
     return {"result": json.dumps(answer.model_dump())}
