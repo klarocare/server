@@ -10,7 +10,7 @@ from services.whatsapp.api_client import WhatsAppAPIClient
 from models.whatsapp import WhatsappUser, WhatsappChatMessage
 from schemas.rag_schema import Language
 from utils.constants import CHAT_HISTORY_LIMIT
-from services.rag_service import RAGService
+from services.agent.service import AgenticRAGService as RAGService
 from models.whatsapp import WhatsappUser, WhatsappChatMessage
 
 
