@@ -1,6 +1,5 @@
 import logging, os
 from pathlib import Path
-from typing import List, Dict
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFDirectoryLoader, TextLoader
 from langchain_openai import AzureOpenAIEmbeddings
@@ -16,7 +15,6 @@ class AgenticRAGService:
 
     def __init__(self):
         cfg = RAG_CONFIG
-        self.language = Language.GERMAN    # default
         self._prepare_docs(cfg)
         self.embeddings = AzureOpenAIEmbeddings(
             azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
@@ -39,26 +37,17 @@ class AgenticRAGService:
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         self.splits = splitter.split_documents(docs)
 
-    def update_language(self, language: Language):
-        if language != self.language:
-            self.language = language
-            self.graph = build_graph(self.vs)
 
     def query(self, message: str, chat_history: list[dict], language: Language):
-        # 1) refresh language ↔ prompt mapping
-        self.update_language(language)
-
         logging.info("🔄  Agentic RAGService invoked")
 
-        # 2) run the graph and ask it to return ONLY the keys we care about
         state = self.graph.invoke(
-            {"chat_history": chat_history, "user_msg": message},
+            {"chat_history": chat_history, "user_msg": message, "language": language},
             output_keys=["result", "route"]
         )
 
-        payload = state["result"]                   # summary OR RAG answer JSON
+        payload = state["result"]
 
-        # 3) map to ChatResponse (keeps your public API unchanged)
         if state["route"] == "CALLBACK":
             return ChatResponse(has_callback=True,  response=payload)
 

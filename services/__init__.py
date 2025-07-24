@@ -1,10 +1,13 @@
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI
+from langfuse.langchain import CallbackHandler
 
 from core.config import settings
-from services.callback_service import request_callback
 
-load_dotenv()
+
+load_dotenv(override=True)
+
+langfuse_handler = CallbackHandler()
 
 llm = AzureChatOpenAI(
         azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
@@ -16,4 +19,4 @@ llm = AzureChatOpenAI(
         max_tokens=None,
         timeout=None,
         max_retries=2
-    ).bind_tools([request_callback])
+    )

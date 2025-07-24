@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 langfuse = get_client()
 
-chat_prompt = langfuse.get_prompt("chat_en").prompt
+chat_prompt = langfuse.get_prompt("chat").prompt
 chat_no_context_prompt = langfuse.get_prompt("chat_no_context").prompt
 classifier_prompt = langfuse.get_prompt("classifier").prompt
 summary_prompt = ChatPromptTemplate.from_messages([
